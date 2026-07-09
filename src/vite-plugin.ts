@@ -13,7 +13,7 @@ export default function kapi(): Plugin {
   let isDev = false
 
   return {
-    name: 'kapi',
+    name: 'kapi-ui',
     enforce: 'pre',
     config(_config, { command }) {
       isDev = command === 'serve'

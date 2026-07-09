@@ -9,7 +9,7 @@ const overlayPath = path.resolve(__dirname, './overlay.js');
 export default function kapi() {
     let isDev = false;
     return {
-        name: 'kapi',
+        name: 'kapi-ui',
         enforce: 'pre',
         config(_config, { command }) {
             isDev = command === 'serve';
