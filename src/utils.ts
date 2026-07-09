@@ -7,25 +7,12 @@ import { execSync } from 'child_process'
 
 // dist/utils.js -> package root (one level up from dist/)
 const kapiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-
-// kapi isn't published yet, so pack it into a tarball and install that
-// directly -- avoids the npm-link global-registration bootstrap problem
-// entirely, and installs like a real package (copied, not symlinked).
-function packKapi(): string {
-  const pkg = JSON.parse(readFileSync(path.join(kapiRoot, 'package.json'), 'utf-8'))
-  const tarballName = `${pkg.name}-${pkg.version}.tgz`
-
-  console.log('Packing kapi...')
-  execSync('npm pack', { cwd: kapiRoot, stdio: 'inherit' })
-
-  return path.join(kapiRoot, tarballName)
-}
+const kapiPkg = JSON.parse(readFileSync(path.join(kapiRoot, 'package.json'), 'utf-8'))
+export const KAPI_PACKAGE_NAME: string = kapiPkg.name
 
 export function installKapi(cwd: string) {
-  const tarballPath = packKapi()
-
-  console.log('Installing kapi...')
-  execSync(`npm install ${JSON.stringify(tarballPath)} -D`, { cwd, stdio: 'inherit' })
+  console.log(`Installing ${KAPI_PACKAGE_NAME}...`)
+  execSync(`npm install ${KAPI_PACKAGE_NAME} -D`, { cwd, stdio: 'inherit' })
 }
 
 export async function injectVitePlugin(cwd: string) {
@@ -37,9 +24,10 @@ export async function injectVitePlugin(cwd: string) {
   }
 
   const configPath = path.join(cwd, configFile)
+  const importSpecifier = `${KAPI_PACKAGE_NAME}/vite-plugin`
 
   const existingSource = readFileSync(configPath, 'utf-8')
-  if (existingSource.includes('kapi/vite-plugin')) {
+  if (existingSource.includes(importSpecifier)) {
     console.log(`✔ kapi plugin already configured in ${configFile}`)
     return
   }
@@ -47,7 +35,7 @@ export async function injectVitePlugin(cwd: string) {
   const mod = await loadFile(configPath)
 
   addVitePlugin(mod, {
-    from: 'kapi/vite-plugin',
+    from: importSpecifier,
     imported: 'default',
     constructor: 'kapi'
   })

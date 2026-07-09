@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import prompts from 'prompts';
-import { installKapi, injectVitePlugin } from './utils.js';
+import { installKapi, injectVitePlugin, KAPI_PACKAGE_NAME } from './utils.js';
 async function setup() {
     console.log(`
 ██   ██  █████  ██████  ██ 
@@ -33,7 +33,7 @@ async function setup() {
             console.log(`
 Add this manually to your vite.config:
 
-  import kapi from 'kapi/vite-plugin'
+  import kapi from '${KAPI_PACKAGE_NAME}/vite-plugin'
 
   export default defineConfig({
     plugins: [kapi()],
