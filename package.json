@@ -1,6 +1,6 @@
 {
   "name": "kapi-ui",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Visually prompt your UI",
   "scripts": {
     "build": "tsc",
