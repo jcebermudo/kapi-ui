@@ -25,7 +25,7 @@ export default function kapi() {
             startServer(KAPI_SERVER_PORT);
         },
         resolveId(id) {
-            if (id === '/@kapi/overlay')
+            if (id === '/@kapi-ui/overlay')
                 return overlayPath;
         },
         transform(code, id) {
@@ -38,7 +38,7 @@ export default function kapi() {
             return { code: stampTemplateLocations(code, relativeFile), map: null };
         },
         transformIndexHtml(html) {
-            return html.replace('</body>', `<script type="module" src="/@kapi/overlay"></script></body>`);
+            return html.replace('</body>', `<script type="module" src="/@kapi-ui/overlay"></script></body>`);
         },
     };
 }

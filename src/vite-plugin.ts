@@ -29,7 +29,7 @@ export default function kapi(): Plugin {
       startServer(KAPI_SERVER_PORT)
     },
     resolveId(id: string) {
-      if (id === '/@kapi/overlay') return overlayPath
+      if (id === '/@kapi-ui/overlay') return overlayPath
     },
     transform(code: string, id: string) {
       if (!isDev) return
@@ -42,7 +42,7 @@ export default function kapi(): Plugin {
     transformIndexHtml(html: string) {
       return html.replace(
         '</body>',
-        `<script type="module" src="/@kapi/overlay"></script></body>`,
+        `<script type="module" src="/@kapi-ui/overlay"></script></body>`,
       )
     },
   }
