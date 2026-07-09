@@ -10,7 +10,7 @@
     "dist"
   ],
   "bin": {
-    "kapi": "./dist/setup.js"
+    "kapi": "dist/setup.js"
   },
   "exports": {
     "./vite-plugin": "./dist/vite-plugin.js"
