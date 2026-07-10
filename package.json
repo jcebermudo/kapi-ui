@@ -4,6 +4,7 @@
   "description": "Visually prompt your UI",
   "scripts": {
     "build": "tsc",
+    "dev": "tsc --watch --preserveWatchOutput",
     "prepublishOnly": "npm run build"
   },
   "files": [
