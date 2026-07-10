@@ -14,9 +14,12 @@ export default defineNuxtModule<Record<string, never>>({
     // overlay script has to be injected via unhead instead of the vite plugin.
     addVitePlugin(kapiVitePlugin())
 
+    // Nuxt mounts Vite's dev middleware under app.buildAssetsDir (e.g. /_nuxt/),
+    // not at the site root, so the script has to be requested from under that
+    // prefix or Nitro's page renderer intercepts it before Vite ever sees it.
     nuxt.options.app.head.script ||= []
     nuxt.options.app.head.script.push({
-      src: '/@kapi-ui/overlay',
+      src: `${nuxt.options.app.buildAssetsDir}@kapi-ui/overlay`,
       type: 'module',
     })
   },

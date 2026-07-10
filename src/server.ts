@@ -109,7 +109,12 @@ function processComments(prompt: string, socket: WebSocket) {
   });
 }
 
+let serverStarted = false
+
 export function startServer(portNumber: number) {
+  if (serverStarted) return
+  serverStarted = true
+
   const server = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("I love capybaras");
