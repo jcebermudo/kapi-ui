@@ -91,16 +91,38 @@ const STYLES = `
 
   .kapi-comment-composer {
     display: flex;
-    align-items: flex-end;
-    gap: 8px;
-    padding: 6px 6px 6px 14px;
+    flex-direction: column;
+    top: 0;
+    transform: none;
+    animation: kapi-composer-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .kapi-comment-composer-input-row {
+    padding: 8px 0 4px 14px;
+  }
+
+  .kapi-comment-composer-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px;
+  }
+
+  @keyframes kapi-composer-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .kapi-comment-input {
     all: unset;
+    box-sizing: border-box;
     display: block;
-    flex: 1 1 auto;
-    min-width: 0;
+    width: 100%;
     max-height: 120px;
     overflow-y: auto;
     resize: none;
@@ -108,7 +130,22 @@ const STYLES = `
     font-family: inherit;
     font-size: 13px;
     line-height: 1.3;
-    padding: 5px 0;
+    padding: 0;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+  }
+
+  .kapi-comment-input::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .kapi-comment-input::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .kapi-comment-input::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 999px;
   }
 
   .kapi-comment-input::placeholder {
@@ -306,12 +343,24 @@ function renderComposer(number: number, target: { el: Element; ratioX: number; r
     if (e.key === 'Escape') cancelDraft()
   })
 
-  composer.append(input, sendBtn)
+  const inputRow = document.createElement('div')
+  inputRow.className = 'kapi-comment-composer-input-row'
+  inputRow.appendChild(input)
+
+  const actionsRow = document.createElement('div')
+  actionsRow.className = 'kapi-comment-composer-actions'
+  actionsRow.appendChild(sendBtn)
+
+  composer.append(inputRow, actionsRow)
   wrapper.append(marker, composer)
   position(target, wrapper)
   queueMicrotask(() => {
     input.focus()
     autoGrow()
+    // Lock the composer's vertical position to its initial (single-line) height,
+    // centered on the marker, so later growth only extends it downward instead
+    // of continuously re-centering (which would grow it upward too).
+    composer.style.top = `${MARKER_RADIUS - composer.getBoundingClientRect().height / 2}px`
   })
   return wrapper
 }
