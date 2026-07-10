@@ -134,6 +134,21 @@ const STYLES = `
   .kapi-logo-icon {
     width: 18px;
     height: auto;
+    margin-top: 2px;
+    animation: kapi-bounce 1.6s ease-in-out infinite;
+  }
+
+  .kapi-logo-btn.kapi-dragging .kapi-logo-icon {
+    animation-play-state: paused;
+  }
+
+  @keyframes kapi-bounce {
+    0%, 100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-3px) rotate(-6deg);
+    }
   }
 
   .kapi-btn:not(.kapi-logo-btn) .kapi-icon {
@@ -177,6 +192,10 @@ const STYLES = `
     .kapi-btn,
     .kapi-extra {
       transition: none;
+    }
+
+    .kapi-logo-icon {
+      animation: none;
     }
   }
 `
