@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import prompts from 'prompts'
-import { installKapi, injectVitePlugin, injectNuxtVitePlugin, KAPI_PACKAGE_NAME } from './utils.js'
+import { installKapi, injectVitePlugin, injectNuxtModule, KAPI_PACKAGE_NAME } from './utils.js'
 
 async function setup() {
   console.log(`
@@ -51,19 +51,15 @@ Add this manually to your vite.config:
   if (response.setupChoice === 'nuxt') {
     try {
       installKapi(process.cwd())
-      await injectNuxtVitePlugin(process.cwd())
+      await injectNuxtModule(process.cwd())
       console.log('done!')
     } catch (err) {
       console.error('Failed to update nuxt.config automatically:', err)
       console.log(`
 Add this manually to your nuxt.config:
 
-  import kapi from '${KAPI_PACKAGE_NAME}/vite-plugin'
-
   export default defineNuxtConfig({
-    vite: {
-      plugins: [kapi()],
-    },
+    modules: ['${KAPI_PACKAGE_NAME}/nuxt'],
   })
 `)
       process.exit(1)

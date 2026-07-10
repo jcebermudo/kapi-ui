@@ -13,7 +13,8 @@
     "kapi-ui": "dist/setup.js"
   },
   "exports": {
-    "./vite-plugin": "./dist/vite-plugin.js"
+    "./vite-plugin": "./dist/vite-plugin.js",
+    "./nuxt": "./dist/nuxt-module.js"
   },
   "repository": {
     "type": "git",
@@ -32,6 +33,7 @@
   },
   "homepage": "https://github.com/jcebermudo/kapi#readme",
   "devDependencies": {
+    "@nuxt/schema": "^3.14.0",
     "@types/node": "^26.1.0",
     "@types/prompts": "^2.4.9",
     "@types/ws": "^8.18.1",
@@ -39,6 +41,7 @@
     "vite": "^8.1.3"
   },
   "dependencies": {
+    "@nuxt/kit": "^3.14.0",
     "magicast": "^0.5.3",
     "prompts": "^2.4.2",
     "ws": "^8.21.0"

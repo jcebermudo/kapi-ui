@@ -1,5 +1,5 @@
-import { loadFile, writeFile, builders } from 'magicast';
-import { addVitePlugin, getDefaultExportOptions } from 'magicast/helpers';
+import { loadFile, writeFile } from 'magicast';
+import { addVitePlugin, addNuxtModule } from 'magicast/helpers';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -34,34 +34,25 @@ export async function injectVitePlugin(cwd) {
     await writeFile(mod, configPath);
     console.log(`✔ Added kapi plugin to ${configFile}`);
 }
-export async function injectNuxtVitePlugin(cwd) {
-    var _a;
+export async function injectNuxtModule(cwd) {
     const candidates = ['nuxt.config.ts', 'nuxt.config.js', 'nuxt.config.mjs'];
     const configFile = candidates.find((f) => existsSync(path.join(cwd, f)));
     if (!configFile) {
         throw new Error('No nuxt.config found.');
     }
     const configPath = path.join(cwd, configFile);
-    const importSpecifier = `${KAPI_PACKAGE_NAME}/vite-plugin`;
+    const moduleSpecifier = `${KAPI_PACKAGE_NAME}/nuxt`;
     const existingSource = readFileSync(configPath, 'utf-8');
-    if (existingSource.includes(importSpecifier)) {
-        console.log(`✔ kapi plugin already configured in ${configFile}`);
+    if (existingSource.includes(moduleSpecifier)) {
+        console.log(`✔ kapi module already configured in ${configFile}`);
         return;
     }
     const mod = await loadFile(configPath);
-    const constructor = 'kapi';
-    // Nuxt reads Vite plugins from `vite.plugins` in nuxt.config, not from a
-    // top-level `plugins` array, so magicast's addVitePlugin helper (which
-    // targets the latter) can't be reused here directly.
-    const config = getDefaultExportOptions(mod);
-    config.vite || (config.vite = {});
-    (_a = config.vite).plugins || (_a.plugins = []);
-    config.vite.plugins.push(builders.functionCall(constructor));
-    mod.imports.$prepend({
-        from: importSpecifier,
-        imported: 'default',
-        local: constructor,
-    });
+    // Nuxt renders HTML through Nitro, not Vite's transformIndexHtml, so the
+    // overlay can't be injected as a plain Vite plugin the way it is for Vite
+    // apps. Registering it as a Nuxt module (kapi-ui/nuxt) lets it inject the
+    // overlay script via unhead and add the Vite plugin through @nuxt/kit.
+    addNuxtModule(mod, moduleSpecifier);
     await writeFile(mod, configPath);
-    console.log(`✔ Added kapi plugin to ${configFile}`);
+    console.log(`✔ Added kapi module to ${configFile}`);
 }
