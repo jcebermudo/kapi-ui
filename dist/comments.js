@@ -41,7 +41,7 @@ const STYLES = `
     font-weight: 600;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
     pointer-events: auto;
-    cursor: default;
+    cursor: pointer;
     flex: none;
     user-select: none;
   }
@@ -236,30 +236,31 @@ function position(target, wrapper) {
     const y = rect.top + target.ratioY * rect.height;
     wrapper.style.transform = `translate(${x - MARKER_RADIUS}px, ${y - MARKER_RADIUS}px)`;
 }
-function renderMarker(number, target, text, source) {
+function renderMarker(entry) {
     const wrapper = document.createElement('div');
     wrapper.className = 'kapi-comment';
     const marker = document.createElement('div');
     marker.className = 'kapi-comment-marker';
-    marker.textContent = String(number);
+    marker.textContent = String(entry.id);
     const tooltip = document.createElement('div');
     tooltip.className = 'kapi-comment-tooltip';
-    if (source) {
+    if (entry.source) {
         const sourceEl = document.createElement('div');
         sourceEl.className = 'kapi-comment-tooltip-source';
-        sourceEl.textContent = `${source.file}:${source.line}:${source.column}`;
+        sourceEl.textContent = `${entry.source.file}:${entry.source.line}:${entry.source.column}`;
         tooltip.appendChild(sourceEl);
     }
     const textEl = document.createElement('div');
-    textEl.textContent = text;
+    textEl.textContent = entry.text;
     tooltip.appendChild(textEl);
     marker.addEventListener('mouseenter', () => wrapper.classList.add('kapi-hovering'));
     marker.addEventListener('mouseleave', () => wrapper.classList.remove('kapi-hovering'));
+    marker.addEventListener('click', () => beginEdit(entry));
     wrapper.append(marker, tooltip);
-    position(target, wrapper);
+    position(entry, wrapper);
     return wrapper;
 }
-function renderComposer(number, target) {
+function renderComposer(number, target, initialText = '') {
     const wrapper = document.createElement('div');
     wrapper.className = 'kapi-comment';
     const marker = document.createElement('div');
@@ -271,6 +272,7 @@ function renderComposer(number, target) {
     input.className = 'kapi-comment-input';
     input.placeholder = 'Add a comment';
     input.rows = 1;
+    input.value = initialText;
     const autoGrow = () => {
         input.style.height = 'auto';
         input.style.height = `${input.scrollHeight}px`;
@@ -302,6 +304,7 @@ function renderComposer(number, target) {
     position(target, wrapper);
     queueMicrotask(() => {
         input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
         autoGrow();
         // Lock the composer's vertical position to its initial (single-line) height,
         // centered on the marker, so later growth only extends it downward instead
@@ -314,9 +317,13 @@ function render() {
     const r = ensureRoot();
     r.querySelectorAll('.kapi-comment').forEach((n) => n.remove());
     for (const entry of comments) {
-        r.appendChild(renderMarker(entry.id, entry, entry.text, entry.source));
+        if (draft && draft.id === entry.id) {
+            r.appendChild(renderComposer(entry.id, draft, draft.text));
+            continue;
+        }
+        r.appendChild(renderMarker(entry));
     }
-    if (draft) {
+    if (draft && draft.id === undefined) {
         r.appendChild(renderComposer(comments.length + 1, draft));
     }
 }
@@ -347,14 +354,21 @@ function submitDraft(rawText) {
         cancelDraft();
         return;
     }
-    comments.push({
-        id: comments.length + 1,
-        el: draft.el,
-        ratioX: draft.ratioX,
-        ratioY: draft.ratioY,
-        text,
-        source: getSourceLocation(draft.el),
-    });
+    if (draft.id !== undefined) {
+        const entry = comments.find((c) => c.id === draft.id);
+        if (entry)
+            entry.text = text;
+    }
+    else {
+        comments.push({
+            id: comments.length + 1,
+            el: draft.el,
+            ratioX: draft.ratioX,
+            ratioY: draft.ratioY,
+            text,
+            source: getSourceLocation(draft.el),
+        });
+    }
     draft = null;
     unlockHighlight();
     saveToStorage();
@@ -404,6 +418,13 @@ export function beginComment(el, clientX, clientY) {
     const ratioY = rect.height > 0 ? clamp((clientY - rect.top) / rect.height, 0, 1) : 0.5;
     draft = { el, ratioX, ratioY };
     lockHighlightOn(el);
+    render();
+}
+function beginEdit(entry) {
+    if (draft)
+        return; // a draft is already open; must be sent (or Escaped) before starting another
+    draft = { el: entry.el, ratioX: entry.ratioX, ratioY: entry.ratioY, id: entry.id, text: entry.text };
+    lockHighlightOn(entry.el);
     render();
 }
 loadFromStorage();
