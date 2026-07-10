@@ -1,4 +1,5 @@
 import { lockHighlightOn, unlockHighlight, getSourceLocation, type SourceLocation } from './inspector.js'
+import { ARROW_SVG } from './icons.js'
 
 const TAG = 'kapi-comments'
 const STORAGE_KEY = `kapi-comments:${location.pathname}`
@@ -6,11 +7,6 @@ const MARKER_COLOR = '34, 197, 94' // green-500, matches the hover highlight
 const MARKER_SIZE = 22
 const MARKER_RADIUS = MARKER_SIZE / 2
 const PANEL_WIDTH = 240 // shared fixed width for both the composer and the submitted tooltip
-
-// viewBox is cropped to the path's actual ink bounding box (0,0 to ~4.08,4.08),
-// not the original 0 0 5 5 -- the artwork isn't centered in that stated box,
-// so a naive flex-centered render looks visibly off.
-const ARROW_SVG = `<svg viewBox="0 0 4.08228 4.08228" width="10" height="10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4.08228 1.9241L3.65301 2.33273L2.35468 1.10883L2.35468 4.08228L1.72761 4.08228L1.72761 1.10883L0.431375 2.33273L-9.43368e-08 1.9241L2.04114 -6.76765e-06L4.08228 1.9241Z" fill="#1E1E1F"/></svg>`
 
 const STYLES = `
   :host {
