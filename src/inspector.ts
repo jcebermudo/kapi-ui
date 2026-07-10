@@ -21,9 +21,10 @@ function ensureHighlightEl(): HTMLDivElement {
     pointer-events: none;
     box-sizing: border-box;
     background: rgba(${HIGHLIGHT_COLOR}, 0.2);
-    border: 2px solid rgb(${HIGHLIGHT_COLOR});
+    border: 1px solid rgb(${HIGHLIGHT_COLOR});
     z-index: 2147483646;
     display: none;
+    transition: transform 120ms ease, width 120ms ease, height 120ms ease;
   `
   document.body.appendChild(el)
   highlightEl = el
