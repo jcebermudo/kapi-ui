@@ -43,6 +43,19 @@ const STYLES = `
     user-select: none;
   }
 
+  .kapi-comment-marker-enter {
+    animation: kapi-marker-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes kapi-marker-in {
+    from {
+      transform: scale(0.5);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+
   .kapi-comment-tooltip,
   .kapi-comment-composer {
     display: none;
@@ -70,6 +83,18 @@ const STYLES = `
     line-height: 1.3;
     white-space: normal;
     overflow-wrap: break-word;
+    animation: kapi-tooltip-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes kapi-tooltip-in {
+    from {
+      opacity: 0;
+      transform: translateY(-50%) translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(-50%);
+    }
   }
 
   .kapi-comment.kapi-hovering .kapi-comment-tooltip {
@@ -261,7 +286,7 @@ function renderComposer(number, target, initialText = '') {
     const wrapper = document.createElement('div');
     wrapper.className = 'kapi-comment';
     const marker = document.createElement('div');
-    marker.className = 'kapi-comment-marker';
+    marker.className = 'kapi-comment-marker kapi-comment-marker-enter';
     marker.textContent = String(number);
     const composer = document.createElement('div');
     composer.className = 'kapi-comment-composer';
