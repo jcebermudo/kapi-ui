@@ -29,6 +29,8 @@ function ensureHighlightEl() {
 }
 function handleBlockerClick(e) {
     const stack = document.elementsFromPoint(e.clientX, e.clientY);
+    if (stack[0]?.closest(IGNORE_SELECTOR))
+        return;
     const el = stack.find(isInspectable) ?? null;
     if (!el)
         return;
@@ -116,6 +118,14 @@ function handlePointerMove(e) {
     if (locked)
         return;
     const stack = document.elementsFromPoint(e.clientX, e.clientY);
+    // The overlay/hover-panel/comments UI sits above the blocker in z-index, so
+    // when the cursor is directly over it, it's the topmost hit. Bail out here
+    // rather than falling through to stack.find, which would otherwise select
+    // whatever page element happens to sit behind our own UI.
+    if (stack[0]?.closest(IGNORE_SELECTOR)) {
+        clearHighlight();
+        return;
+    }
     const el = stack.find(isInspectable) ?? null;
     if (!el) {
         clearHighlight();
