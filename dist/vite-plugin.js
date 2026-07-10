@@ -34,6 +34,8 @@ export default function kapi() {
             const [bareId] = id.split('?');
             if (!bareId.endsWith('.vue'))
                 return;
+            if (bareId.includes('/node_modules/'))
+                return;
             const relativeFile = path.relative(process.cwd(), bareId);
             return { code: stampTemplateLocations(code, relativeFile), map: null };
         },
