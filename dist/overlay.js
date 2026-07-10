@@ -2,7 +2,7 @@ import { startInspecting, stopInspecting, setOnHover, setOnElementClick, setDisa
 import { updateHoverPanel, showProcessingStatus } from './hover-panel.js';
 import { beginComment, clearAllComments, cancelOpenDraft, buildCommentsPrompt } from './comments.js';
 import { connectSocket, sendComments, setOnCommentsDone, setOnCommentsProcessing } from './socket.js';
-import { LOGO_SVG, WAND_SVG, DELETE_SVG } from './icons.js';
+import { LOGO_SVG, AI_SVG, DELETE_SVG } from './icons.js';
 const KAPI_TAG = 'kapi-overlay';
 const POSITION_KEY = 'kapi-overlay-position';
 const DRAG_THRESHOLD = 4;
@@ -15,8 +15,8 @@ const STYLES = `
     all: initial;
 
     --kapi-bg: #1e1e1f;
-    --kapi-bg-hover: #2a2a2b;
-    --kapi-bg-active: #161617;
+    --kapi-bg-hover: #3b3b3f;
+    --kapi-bg-active: #3b3b3f;
     --kapi-ring: rgba(255, 255, 255, 0.14);
     --kapi-divider: rgba(255, 255, 255, 0.16);
 
@@ -125,7 +125,12 @@ const STYLES = `
     }
   }
 
-  .kapi-btn:not(.kapi-logo-btn) .kapi-icon {
+  .kapi-ai-icon {
+    width: 16.5px;
+    height: auto;
+  }
+
+  .kapi-delete-icon {
     width: 15.5px;
     height: auto;
   }
@@ -141,17 +146,17 @@ const STYLES = `
     transition-delay: 0ms;
   }
 
+  .kapi-bar.kapi-expanded .kapi-extra {
+    opacity: 1;
+    transform: scale(1);
+    transition-delay: 140ms;
+  }
+
   .kapi-btn-group {
     display: flex;
     align-items: center;
     gap: 0;
     flex: none;
-  }
-
-  .kapi-bar.kapi-expanded .kapi-extra {
-    opacity: 1;
-    transform: scale(1);
-    transition-delay: 140ms;
   }
 
   .kapi-divider {
@@ -221,12 +226,12 @@ export function insertOverlay() {
         divider.className = 'kapi-divider';
         return divider;
     };
-    const wandBtn = document.createElement('button');
-    wandBtn.className = 'kapi-btn';
-    wandBtn.type = 'button';
-    wandBtn.setAttribute('aria-label', 'Magic wand');
-    wandBtn.innerHTML = WAND_SVG;
-    wandBtn.addEventListener('click', () => {
+    const aiBtn = document.createElement('button');
+    aiBtn.className = 'kapi-btn';
+    aiBtn.type = 'button';
+    aiBtn.setAttribute('aria-label', 'AI');
+    aiBtn.innerHTML = AI_SVG;
+    aiBtn.addEventListener('click', () => {
         const prompt = buildCommentsPrompt();
         if (prompt)
             sendComments(prompt);
@@ -239,7 +244,7 @@ export function insertOverlay() {
     deleteBtn.addEventListener('click', () => clearAllComments());
     const btnGroup = document.createElement('div');
     btnGroup.className = 'kapi-btn-group';
-    btnGroup.append(wandBtn, deleteBtn);
+    btnGroup.append(aiBtn, deleteBtn);
     extra.append(makeDivider(), btnGroup);
     bar.append(logoBtn, extra);
     root.append(style, bar);
