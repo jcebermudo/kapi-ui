@@ -8,7 +8,7 @@ import {
   type SourceLocation,
   type ComponentInfo,
 } from './inspector.js'
-import { ARROW_SVG } from './icons.js'
+import { ARROW_SVG, DELETE_SVG } from './icons.js'
 
 const TAG = 'kapi-comments'
 const STORAGE_KEY = `kapi-comments:${location.pathname}`
@@ -140,7 +140,48 @@ const STYLES = `
   .kapi-comment-composer-actions {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
     padding: 6px;
+    gap: 6px;
+  }
+
+  .kapi-comment-composer-actions:has(.kapi-comment-delete) {
+    justify-content: space-between;
+  }
+
+  .kapi-comment-delete {
+    all: unset;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+    flex: none;
+    transition: background 150ms ease;
+  }
+
+  .kapi-comment-delete:hover {
+    background: rgba(239, 68, 68, 0.2);
+  }
+
+  .kapi-delete-icon {
+    height: 13px;
+    width: auto;
+    opacity: 0.5;
+  }
+
+  .kapi-comment-delete:hover .kapi-delete-icon,
+  .kapi-comment-delete:active .kapi-delete-icon {
+    opacity: 1;
+    filter: brightness(0) saturate(100%) invert(31%) sepia(78%) saturate(2043%) hue-rotate(354deg) brightness(105%) contrast(104%);
+  }
+
+  .kapi-comment-delete:active {
+    background: rgba(239, 68, 68, 0.3);
   }
 
   @keyframes kapi-composer-in {
@@ -404,6 +445,19 @@ function renderComposer(
 
   const actionsRow = document.createElement('div')
   actionsRow.className = 'kapi-comment-composer-actions'
+
+  if (initialText) {
+    const deleteBtn = document.createElement('button')
+    deleteBtn.type = 'button'
+    deleteBtn.className = 'kapi-comment-delete'
+    deleteBtn.setAttribute('aria-label', 'Delete comment')
+    deleteBtn.innerHTML = DELETE_SVG
+    deleteBtn.addEventListener('click', () => {
+      if (draft?.id) deleteComment(draft.id)
+    })
+    actionsRow.appendChild(deleteBtn)
+  }
+
   actionsRow.appendChild(sendBtn)
 
   composer.append(inputRow, actionsRow)
@@ -553,6 +607,14 @@ export function beginComment(el: Element, clientX: number, clientY: number) {
 
   draft = { el, ratioX, ratioY }
   lockHighlightOn(el)
+  render()
+}
+
+function deleteComment(id: number) {
+  comments = comments.filter((c) => c.id !== id)
+  draft = null
+  unlockHighlight()
+  saveToStorage()
   render()
 }
 
