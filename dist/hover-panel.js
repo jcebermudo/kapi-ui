@@ -37,9 +37,13 @@ const STYLES = `
     font-weight: 600;
   }
 
-  .kapi-hover-panel-source {
+  .kapi-hover-panel-component {
     color: rgb(74, 222, 128);
     font-weight: 600;
+  }
+
+  .kapi-hover-panel-source {
+    color: rgba(255, 255, 255, 0.5);
     margin-bottom: 2px;
   }
 

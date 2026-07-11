@@ -68,8 +68,7 @@ export async function injectVitePlugin(cwd: string) {
 }
 
 export async function injectNuxtModule(cwd: string) {
-  const candidates = ['nuxt.config.ts', 'nuxt.config.js', 'nuxt.config.mjs']
-  const configFile = candidates.find((f) => existsSync(path.join(cwd, f)))
+  const configFile = NUXT_CONFIG_CANDIDATES.find((f) => existsSync(path.join(cwd, f)))
 
   if (!configFile) {
     throw new Error('No nuxt.config found.')
