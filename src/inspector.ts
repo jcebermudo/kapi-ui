@@ -101,6 +101,58 @@ export function getSourceLocation(el: Element): SourceLocation | null {
   }
 }
 
+export interface ComponentInfo {
+  name: string
+  file: string | null
+}
+
+// Vue's renderer stamps every DOM node it creates with a non-enumerable
+// `__vueParentComponent` pointing at the component instance whose render()
+// produced it, so this reads straight off the element instead of walking the
+// DOM for a compile-time attribute. `type.__file` is populated by
+// @vitejs/plugin-vue in dev builds for devtools, at no extra cost to us.
+interface VueComponentInstance {
+  type: { name?: string; __name?: string; __file?: string }
+}
+
+let warnedMissingComponentInfo = false
+
+export function getComponentInfo(el: Element): ComponentInfo | null {
+  const instance = (el as Element & { __vueParentComponent?: VueComponentInstance }).__vueParentComponent
+
+  if (!instance) {
+    // `data-kapi-loc` is stamped at build time onto real Vue template
+    // elements (see location-transform.ts), independently of this runtime
+    // property. If it's present but `__vueParentComponent` isn't, that's not
+    // "this element isn't Vue-managed" (the normal, silent null case) — it's
+    // a sign Vue renamed/removed this internal property, so warn once rather
+    // than degrading silently everywhere.
+    if (!warnedMissingComponentInfo && el.closest('[data-kapi-loc]')) {
+      warnedMissingComponentInfo = true
+      console.warn(
+        '[kapi] Could not resolve Vue component info for an element with a known source location. ' +
+          "Vue's internal `__vueParentComponent` property may have changed in this Vue version — " +
+          'component names/files will be unavailable until kapi is updated to match.',
+      )
+    }
+    return null
+  }
+
+  const name = instance.type.name || instance.type.__name
+  if (!name) return null
+
+  return { name, file: instance.type.__file ?? null }
+}
+
+// Shared by the hover panel and comment tooltips, which both render a
+// `<ComponentName>` badge but style it with their own class.
+export function renderComponentBadge(component: ComponentInfo, className: string): HTMLDivElement {
+  const el = document.createElement('div')
+  el.className = className
+  el.textContent = `<${component.name}>`
+  return el
+}
+
 export interface ElementLocation {
   tag: string
   id: string | null

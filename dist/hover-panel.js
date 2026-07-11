@@ -1,3 +1,4 @@
+import { renderComponentBadge } from './inspector.js';
 const PANEL_TAG = 'kapi-hover-panel';
 const STYLES = `
   :host {
@@ -91,6 +92,9 @@ export function updateHoverPanel(location) {
         return;
     }
     el.replaceChildren();
+    if (location.component) {
+        el.appendChild(renderComponentBadge(location.component, 'kapi-hover-panel-component'));
+    }
     if (location.source) {
         const sourceEl = document.createElement('div');
         sourceEl.className = 'kapi-hover-panel-source';

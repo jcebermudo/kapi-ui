@@ -1,4 +1,12 @@
-import { lockHighlightOn, unlockHighlight, getSourceLocation, type SourceLocation } from './inspector.js'
+import {
+  lockHighlightOn,
+  unlockHighlight,
+  getSourceLocation,
+  getComponentInfo,
+  renderComponentBadge,
+  type SourceLocation,
+  type ComponentInfo,
+} from './inspector.js'
 import { ARROW_SVG } from './icons.js'
 
 const TAG = 'kapi-comments'
@@ -304,6 +312,10 @@ function renderMarker(entry: CommentEntry): HTMLElement {
 
   const tooltip = document.createElement('div')
   tooltip.className = 'kapi-comment-tooltip'
+
+  if (entry.component) {
+    tooltip.appendChild(renderComponentBadge(entry.component, 'kapi-comment-tooltip-component'))
+  }
 
   if (entry.source) {
     const sourceEl = document.createElement('div')

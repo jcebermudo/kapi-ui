@@ -1,6 +1,42 @@
 #!/usr/bin/env node
-import prompts from 'prompts'
-import { installKapi, injectVitePlugin, injectNuxtModule, KAPI_PACKAGE_NAME } from './utils.js'
+import { installKapi, injectVitePlugin, injectNuxtModule, detectFramework, KAPI_PACKAGE_NAME, type Framework } from './utils.js'
+
+const FRAMEWORK_SETUP: Record<
+  Framework,
+  { label: string; inject: (cwd: string) => Promise<void>; manualInstructions: string }
+> = {
+  nuxt: {
+    label: 'Nuxt',
+    inject: injectNuxtModule,
+    manualInstructions: `
+Add this manually to your nuxt.config:
+
+  export default defineNuxtConfig({
+    modules: ['${KAPI_PACKAGE_NAME}/nuxt'],
+  })
+`,
+  },
+  vite: {
+    label: 'Vite + Vue',
+    inject: injectVitePlugin,
+    manualInstructions: `
+Add this manually to your vite.config:
+
+  import kapi from '${KAPI_PACKAGE_NAME}/vite-plugin'
+
+  export default defineConfig({
+    plugins: [kapi()],
+  })
+`,
+  },
+}
+
+function parseFrameworkFlag(): Framework | null {
+  const args = process.argv.slice(2)
+  if (args.includes('--nuxt')) return 'nuxt'
+  if (args.includes('--vite')) return 'vite'
+  return null
+}
 
 async function setup() {
   console.log(`
@@ -26,44 +62,17 @@ async function setup() {
     process.exit(0)
   }
 
-  console.log(`\n✨ Setting up Kapi for ${response.setupChoice}...\n`)
+  const { label, inject, manualInstructions } = FRAMEWORK_SETUP[framework]
+  console.log(`\n✨ Detected ${label} — setting up kapi...\n`)
 
-  if (response.setupChoice === 'vite') {
-    try {
-      installKapi(process.cwd())
-      await injectVitePlugin(process.cwd())
-      console.log('done!')
-    } catch (err) {
-      console.error('Failed to update vite.config automatically:', err)
-      console.log(`
-Add this manually to your vite.config:
-
-  import kapi from '${KAPI_PACKAGE_NAME}/vite-plugin'
-
-  export default defineConfig({
-    plugins: [kapi()],
-  })
-`)
-      process.exit(1)
-    }
-  }
-
-  if (response.setupChoice === 'nuxt') {
-    try {
-      installKapi(process.cwd())
-      await injectNuxtModule(process.cwd())
-      console.log('done!')
-    } catch (err) {
-      console.error('Failed to update nuxt.config automatically:', err)
-      console.log(`
-Add this manually to your nuxt.config:
-
-  export default defineNuxtConfig({
-    modules: ['${KAPI_PACKAGE_NAME}/nuxt'],
-  })
-`)
-      process.exit(1)
-    }
+  try {
+    installKapi(cwd)
+    await inject(cwd)
+    console.log('done!')
+  } catch (err) {
+    console.error('Failed to update your config automatically:', err)
+    console.log(manualInstructions)
+    process.exit(1)
   }
 }
 
