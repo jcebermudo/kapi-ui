@@ -24,28 +24,27 @@ function stampElements(
  * them, rather than approximated with a regex.
  */
 export function stampTemplateLocations(code: string, relativeFile: string): string {
-  let descriptor: ReturnType<typeof parse>['descriptor']
   try {
-    ;({ descriptor } = parse(code, { filename: relativeFile }))
+    const { descriptor } = parse(code, { filename: relativeFile })
+    const template = descriptor.template
+    if (!template || !template.ast) return code
+
+    const inserts: { offset: number; text: string }[] = []
+    for (const child of template.ast.children) stampElements(child, relativeFile, inserts)
+    if (inserts.length === 0) return code
+
+    let result = ''
+    let cursor = 0
+    for (const { offset, text } of inserts) {
+      result += code.slice(cursor, offset) + text
+      cursor = offset
+    }
+    result += code.slice(cursor)
+    return result
   } catch {
+    // Malformed input or a pathologically deep template (e.g. stack overflow
+    // in the recursive walk) — degrade to untouched source rather than
+    // breaking the dev-server transform for this file.
     return code
   }
-
-  const template = descriptor.template
-  if (!template || !template.ast) return code
-
-  const inserts: { offset: number; text: string }[] = []
-  for (const child of template.ast.children) stampElements(child, relativeFile, inserts)
-  if (inserts.length === 0) return code
-
-  inserts.sort((a, b) => a.offset - b.offset)
-
-  let result = ''
-  let cursor = 0
-  for (const { offset, text } of inserts) {
-    result += code.slice(cursor, offset) + text
-    cursor = offset
-  }
-  result += code.slice(cursor)
-  return result
 }

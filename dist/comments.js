@@ -101,11 +101,17 @@ const STYLES = `
     display: flex;
   }
 
-  .kapi-comment-tooltip-source {
+  .kapi-comment-tooltip-component {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 11px;
     font-weight: 600;
     color: rgb(${MARKER_COLOR});
+  }
+
+  .kapi-comment-tooltip-source {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
   }
 
   .kapi-comment-composer {
@@ -277,7 +283,7 @@ function renderMarker(entry) {
     tooltip.className = 'kapi-comment-tooltip';
     if (entry.component) {
         const componentEl = document.createElement('div');
-        componentEl.className = 'kapi-comment-tooltip-source';
+        componentEl.className = 'kapi-comment-tooltip-component';
         componentEl.textContent = `<${entry.component.name}>`;
         tooltip.appendChild(componentEl);
     }
