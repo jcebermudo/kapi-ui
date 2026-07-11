@@ -115,6 +115,14 @@ export function getComponentInfo(el) {
         return null;
     return { name, file: instance.type.__file ?? null };
 }
+// Shared by the hover panel and comment tooltips, which both render a
+// `<ComponentName>` badge but style it with their own class.
+export function renderComponentBadge(component, className) {
+    const el = document.createElement('div');
+    el.className = className;
+    el.textContent = `<${component.name}>`;
+    return el;
+}
 export function describeElement(el) {
     return {
         tag: el.tagName.toLowerCase(),

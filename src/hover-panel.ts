@@ -1,4 +1,4 @@
-import type { ElementLocation } from './inspector.js'
+import { renderComponentBadge, type ElementLocation } from './inspector.js'
 
 const PANEL_TAG = 'kapi-hover-panel'
 
@@ -107,10 +107,7 @@ export function updateHoverPanel(location: ElementLocation | null) {
   el.replaceChildren()
 
   if (location.component) {
-    const componentEl = document.createElement('div')
-    componentEl.className = 'kapi-hover-panel-component'
-    componentEl.textContent = `<${location.component.name}>`
-    el.appendChild(componentEl)
+    el.appendChild(renderComponentBadge(location.component, 'kapi-hover-panel-component'))
   }
 
   if (location.source) {

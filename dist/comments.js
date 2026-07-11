@@ -1,4 +1,4 @@
-import { lockHighlightOn, unlockHighlight, getSourceLocation, getComponentInfo, } from './inspector.js';
+import { lockHighlightOn, unlockHighlight, getSourceLocation, getComponentInfo, renderComponentBadge, } from './inspector.js';
 import { ARROW_SVG } from './icons.js';
 const TAG = 'kapi-comments';
 const STORAGE_KEY = `kapi-comments:${location.pathname}`;
@@ -282,10 +282,7 @@ function renderMarker(entry) {
     const tooltip = document.createElement('div');
     tooltip.className = 'kapi-comment-tooltip';
     if (entry.component) {
-        const componentEl = document.createElement('div');
-        componentEl.className = 'kapi-comment-tooltip-component';
-        componentEl.textContent = `<${entry.component.name}>`;
-        tooltip.appendChild(componentEl);
+        tooltip.appendChild(renderComponentBadge(entry.component, 'kapi-comment-tooltip-component'));
     }
     if (entry.source) {
         const sourceEl = document.createElement('div');

@@ -144,6 +144,15 @@ export function getComponentInfo(el: Element): ComponentInfo | null {
   return { name, file: instance.type.__file ?? null }
 }
 
+// Shared by the hover panel and comment tooltips, which both render a
+// `<ComponentName>` badge but style it with their own class.
+export function renderComponentBadge(component: ComponentInfo, className: string): HTMLDivElement {
+  const el = document.createElement('div')
+  el.className = className
+  el.textContent = `<${component.name}>`
+  return el
+}
+
 export interface ElementLocation {
   tag: string
   id: string | null

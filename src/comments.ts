@@ -3,6 +3,7 @@ import {
   unlockHighlight,
   getSourceLocation,
   getComponentInfo,
+  renderComponentBadge,
   type SourceLocation,
   type ComponentInfo,
 } from './inspector.js'
@@ -330,10 +331,7 @@ function renderMarker(entry: CommentEntry): HTMLElement {
   tooltip.className = 'kapi-comment-tooltip'
 
   if (entry.component) {
-    const componentEl = document.createElement('div')
-    componentEl.className = 'kapi-comment-tooltip-component'
-    componentEl.textContent = `<${entry.component.name}>`
-    tooltip.appendChild(componentEl)
+    tooltip.appendChild(renderComponentBadge(entry.component, 'kapi-comment-tooltip-component'))
   }
 
   if (entry.source) {
