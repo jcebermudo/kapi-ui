@@ -1,4 +1,4 @@
-import { KAPI_SERVER_PORT } from './constants.js'
+import { KAPI_SERVER_PORT } from '../constants.js'
 
 let socket: WebSocket | null = null
 let onCommentsDone: (() => void) | null = null

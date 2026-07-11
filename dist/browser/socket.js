@@ -1,4 +1,4 @@
-import { KAPI_SERVER_PORT } from './constants.js';
+import { KAPI_SERVER_PORT } from '../constants.js';
 let socket = null;
 let onCommentsDone = null;
 let onCommentsProcessing = null;
