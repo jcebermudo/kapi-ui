@@ -1,11 +1,10 @@
-import { KAPI_SERVER_PORT } from '../constants.js'
-
 let socket: WebSocket | null = null
 let onCommentsDone: (() => void) | null = null
 let onCommentsProcessing: ((status: string) => void) | null = null
 
 export function connectSocket(): WebSocket {
-  socket = new WebSocket(`ws://localhost:${KAPI_SERVER_PORT}`)
+  const port = (window as any).__KAPI_PORT__ || 6767
+  socket = new WebSocket(`ws://localhost:${port}`)
 
   socket.addEventListener('open', () => console.log('[kapi] connected to kapi server'))
   socket.addEventListener('close', () => console.log('[kapi] disconnected from kapi server'))

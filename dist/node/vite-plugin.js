@@ -8,6 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const overlayPath = path.resolve(__dirname, '../browser/overlay.js');
 export default function kapi() {
     let isDev = false;
+    let serverPort = null;
     return {
         name: 'kapi-ui',
         enforce: 'pre',
@@ -22,7 +23,9 @@ export default function kapi() {
             };
         },
         configureServer() {
-            startServer(KAPI_SERVER_PORT);
+            startServer(KAPI_SERVER_PORT).then(port => {
+                serverPort = port;
+            });
         },
         resolveId(id) {
             if (id === '/@kapi-ui/overlay')
@@ -39,8 +42,13 @@ export default function kapi() {
             const relativeFile = path.relative(process.cwd(), bareId);
             return { code: stampTemplateLocations(code, relativeFile), map: null };
         },
-        transformIndexHtml(html) {
-            return html.replace('</body>', `<script type="module" src="/@kapi-ui/overlay"></script></body>`);
+        async transformIndexHtml(html) {
+            if (!isDev)
+                return;
+            if (serverPort === null) {
+                serverPort = await startServer(KAPI_SERVER_PORT);
+            }
+            return html.replace('</body>', `<script>window.__KAPI_PORT__ = ${serverPort}</script><script type="module" src="/@kapi-ui/overlay"></script></body>`);
         },
     };
 }

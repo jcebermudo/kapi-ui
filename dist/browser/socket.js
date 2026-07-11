@@ -1,9 +1,9 @@
-import { KAPI_SERVER_PORT } from '../constants.js';
 let socket = null;
 let onCommentsDone = null;
 let onCommentsProcessing = null;
 export function connectSocket() {
-    socket = new WebSocket(`ws://localhost:${KAPI_SERVER_PORT}`);
+    const port = window.__KAPI_PORT__ || 6767;
+    socket = new WebSocket(`ws://localhost:${port}`);
     socket.addEventListener('open', () => console.log('[kapi] connected to kapi server'));
     socket.addEventListener('close', () => console.log('[kapi] disconnected from kapi server'));
     socket.addEventListener('error', (e) => console.error('[kapi] websocket error', e));

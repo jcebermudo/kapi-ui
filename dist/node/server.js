@@ -2,6 +2,8 @@ import http from "http";
 import { spawn } from "child_process";
 import { WebSocketServer, WebSocket } from "ws";
 let sessionId = null;
+let portPromise = null;
+let serverStarted = false;
 export function getSessionId() {
     return sessionId;
 }
@@ -56,13 +58,35 @@ function describeStreamEvent(event) {
     }
     return null;
 }
+function findAvailablePort(startPort) {
+    return new Promise((resolve, reject) => {
+        const tryPort = (port) => {
+            const server = http.createServer();
+            server.once("error", (err) => {
+                if (err.code === "EADDRINUSE") {
+                    console.log(`[kapi] Port ${port} in use, trying ${port + 1}`);
+                    tryPort(port + 1);
+                }
+                else {
+                    reject(err);
+                }
+            });
+            server.once("listening", () => {
+                server.close();
+                resolve(port);
+            });
+            server.listen(port, "localhost");
+        };
+        tryPort(startPort);
+    });
+}
 function processComments(prompt, socket) {
     if (!sessionId) {
         console.error("[kapi] cannot process comments: no active claude session");
         return;
     }
     send(socket, { type: "comments:processing", status: "Starting..." });
-    const claude = spawn("claude", ["-p", "--resume", sessionId, "--permission-mode", "auto", prompt, "--output-format", "stream-json", "--verbose"], { stdio: ["ignore", "pipe", "pipe"] });
+    const claude = spawn("claude", ["-p", "--resume", sessionId, "--permission-mode", "acceptEdits", prompt, "--output-format", "stream-json", "--verbose"], { stdio: ["ignore", "pipe", "pipe"] });
     let buffer = "";
     claude.stdout.on("data", (chunk) => {
         buffer += chunk.toString();
@@ -91,32 +115,36 @@ function processComments(prompt, socket) {
         send(socket, { type: "comments:done" });
     });
 }
-let serverStarted = false;
 export function startServer(portNumber) {
     if (serverStarted)
-        return;
+        return portPromise;
     serverStarted = true;
-    const server = http.createServer((req, res) => {
-        res.writeHead(200, { "Content-Type": "text/plain" });
-        res.end("I love capybaras");
-    });
-    server.listen(portNumber, "localhost", () => {
-        console.log(`Server running at http://localhost:${portNumber}`);
-    });
-    const wss = new WebSocketServer({ server });
-    wss.on("connection", (socket) => {
-        console.log("[kapi] overlay connected via websocket");
-        socket.on("close", () => console.log("[kapi] overlay disconnected"));
-        socket.on("message", (data) => {
-            try {
-                const msg = JSON.parse(data.toString());
-                if (msg.type === "comments:submit")
-                    processComments(msg.prompt, socket);
-            }
-            catch {
-                /* ignore malformed messages */
-            }
+    portPromise = (async () => {
+        const actualPort = await findAvailablePort(portNumber);
+        const server = http.createServer((req, res) => {
+            res.writeHead(200, { "Content-Type": "text/plain" });
+            res.end("I love capybaras");
         });
-    });
-    startClaudeSession();
+        server.listen(actualPort, "localhost", () => {
+            console.log(`[kapi] Server running at http://localhost:${actualPort}`);
+        });
+        const wss = new WebSocketServer({ server });
+        wss.on("connection", (socket) => {
+            console.log("[kapi] overlay connected via websocket");
+            socket.on("close", () => console.log("[kapi] overlay disconnected"));
+            socket.on("message", (data) => {
+                try {
+                    const msg = JSON.parse(data.toString());
+                    if (msg.type === "comments:submit")
+                        processComments(msg.prompt, socket);
+                }
+                catch {
+                    /* ignore malformed messages */
+                }
+            });
+        });
+        startClaudeSession();
+        return actualPort;
+    })();
+    return portPromise;
 }

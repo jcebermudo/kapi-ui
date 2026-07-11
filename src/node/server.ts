@@ -3,6 +3,8 @@ import { spawn } from "child_process";
 import { WebSocketServer, WebSocket } from "ws";
 
 let sessionId: string | null = null;
+let portPromise: Promise<number> | null = null;
+let serverStarted = false;
 
 export function getSessionId() {
   return sessionId;
@@ -66,6 +68,32 @@ function describeStreamEvent(event: any): string | null {
   return null;
 }
 
+function findAvailablePort(startPort: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const tryPort = (port: number) => {
+      const server = http.createServer();
+
+      server.once("error", (err: any) => {
+        if (err.code === "EADDRINUSE") {
+          console.log(`[kapi] Port ${port} in use, trying ${port + 1}`);
+          tryPort(port + 1);
+        } else {
+          reject(err);
+        }
+      });
+
+      server.once("listening", () => {
+        server.close();
+        resolve(port);
+      });
+
+      server.listen(port, "localhost");
+    };
+
+    tryPort(startPort);
+  });
+}
+
 function processComments(prompt: string, socket: WebSocket) {
   if (!sessionId) {
     console.error("[kapi] cannot process comments: no active claude session");
@@ -76,7 +104,7 @@ function processComments(prompt: string, socket: WebSocket) {
 
   const claude = spawn(
     "claude",
-    ["-p", "--resume", sessionId, "--permission-mode", "auto", prompt, "--output-format", "stream-json", "--verbose"],
+    ["-p", "--resume", sessionId, "--permission-mode", "acceptEdits", prompt, "--output-format", "stream-json", "--verbose"],
     { stdio: ["ignore", "pipe", "pipe"] },
   );
 
@@ -109,33 +137,40 @@ function processComments(prompt: string, socket: WebSocket) {
   });
 }
 
-let serverStarted = false
+export function startServer(portNumber: number): Promise<number> {
+  if (serverStarted) return portPromise!;
+  serverStarted = true;
 
-export function startServer(portNumber: number) {
-  if (serverStarted) return
-  serverStarted = true
+  portPromise = (async () => {
+    const actualPort = await findAvailablePort(portNumber);
 
-  const server = http.createServer((req, res) => {
-    res.writeHead(200, { "Content-Type": "text/plain" });
-    res.end("I love capybaras");
-  });
-  server.listen(portNumber, "localhost", () => {
-    console.log(`Server running at http://localhost:${portNumber}`)
-  })
-
-  const wss = new WebSocketServer({ server });
-  wss.on("connection", (socket) => {
-    console.log("[kapi] overlay connected via websocket");
-    socket.on("close", () => console.log("[kapi] overlay disconnected"));
-    socket.on("message", (data) => {
-      try {
-        const msg = JSON.parse(data.toString());
-        if (msg.type === "comments:submit") processComments(msg.prompt, socket);
-      } catch {
-        /* ignore malformed messages */
-      }
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("I love capybaras");
     });
-  });
 
-  startClaudeSession();
+    server.listen(actualPort, "localhost", () => {
+      console.log(`[kapi] Server running at http://localhost:${actualPort}`);
+    });
+
+    const wss = new WebSocketServer({ server });
+    wss.on("connection", (socket) => {
+      console.log("[kapi] overlay connected via websocket");
+      socket.on("close", () => console.log("[kapi] overlay disconnected"));
+      socket.on("message", (data) => {
+        try {
+          const msg = JSON.parse(data.toString());
+          if (msg.type === "comments:submit") processComments(msg.prompt, socket);
+        } catch {
+          /* ignore malformed messages */
+        }
+      });
+    });
+
+    startClaudeSession();
+
+    return actualPort;
+  })();
+
+  return portPromise;
 }
