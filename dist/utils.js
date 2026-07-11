@@ -55,7 +55,8 @@ export async function injectVitePlugin(cwd) {
     console.log(`✔ Added kapi plugin to ${configFile}`);
 }
 export async function injectNuxtModule(cwd) {
-    const configFile = NUXT_CONFIG_CANDIDATES.find((f) => existsSync(path.join(cwd, f)));
+    const candidates = ['nuxt.config.ts', 'nuxt.config.js', 'nuxt.config.mjs'];
+    const configFile = candidates.find((f) => existsSync(path.join(cwd, f)));
     if (!configFile) {
         throw new Error('No nuxt.config found.');
     }
