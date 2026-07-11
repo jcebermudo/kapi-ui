@@ -5,6 +5,7 @@ import {
   getSourceLocation,
   getComponentInfo,
   renderComponentBadge,
+  isDisabled,
   type SourceLocation,
   type ComponentInfo,
 } from './inspector.js'
@@ -599,7 +600,7 @@ export function clearAllComments() {
 }
 
 export function beginComment(el: Element, clientX: number, clientY: number) {
-  if (draft) return
+  if (isDisabled() || draft) return
 
   const rect = el.getBoundingClientRect()
   const ratioX = rect.width > 0 ? clamp((clientX - rect.left) / rect.width, 0, 1) : 0.5
@@ -619,6 +620,8 @@ function deleteComment(id: number) {
 }
 
 function beginEdit(entry: CommentEntry) {
+  if (isDisabled()) return
+
   if (draft) cancelDraft()
 
   draft = { el: entry.el, ratioX: entry.ratioX, ratioY: entry.ratioY, id: entry.id, text: entry.text }

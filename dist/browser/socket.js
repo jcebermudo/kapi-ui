@@ -28,6 +28,13 @@ export function sendComments(prompt) {
     }
     socket.send(JSON.stringify({ type: 'comments:submit', prompt }));
 }
+export function stopComments() {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+        console.error('[kapi] cannot stop comments: socket not connected');
+        return;
+    }
+    socket.send(JSON.stringify({ type: 'comments:stop' }));
+}
 export function setOnCommentsDone(callback) {
     onCommentsDone = callback;
 }

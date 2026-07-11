@@ -1,4 +1,4 @@
-import { lockHighlightOn, unlockHighlight, clearHighlightIfNotInspecting, getSourceLocation, getComponentInfo, renderComponentBadge, } from './inspector.js';
+import { lockHighlightOn, unlockHighlight, clearHighlightIfNotInspecting, getSourceLocation, getComponentInfo, renderComponentBadge, isDisabled, } from './inspector.js';
 import { ARROW_SVG, DELETE_SVG } from './icons.js';
 const TAG = 'kapi-comments';
 const STORAGE_KEY = `kapi-comments:${location.pathname}`;
@@ -517,7 +517,7 @@ export function clearAllComments() {
     render();
 }
 export function beginComment(el, clientX, clientY) {
-    if (draft)
+    if (isDisabled() || draft)
         return;
     const rect = el.getBoundingClientRect();
     const ratioX = rect.width > 0 ? clamp((clientX - rect.left) / rect.width, 0, 1) : 0.5;
@@ -534,6 +534,8 @@ function deleteComment(id) {
     render();
 }
 function beginEdit(entry) {
+    if (isDisabled())
+        return;
     if (draft)
         cancelDraft();
     draft = { el: entry.el, ratioX: entry.ratioX, ratioY: entry.ratioY, id: entry.id, text: entry.text };
