@@ -111,11 +111,17 @@ const STYLES = `
     display: flex;
   }
 
-  .kapi-comment-tooltip-source {
+  .kapi-comment-tooltip-component {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 11px;
     font-weight: 600;
     color: rgb(${MARKER_COLOR});
+  }
+
+  .kapi-comment-tooltip-source {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
   }
 
   .kapi-comment-composer {
@@ -203,6 +209,7 @@ interface CommentEntry {
   ratioY: number
   text: string
   source: SourceLocation | null
+  component: ComponentInfo | null
 }
 
 interface Draft {
@@ -221,6 +228,7 @@ interface StoredComment {
   ratioY: number
   text: string
   source: SourceLocation | null
+  component: ComponentInfo | null
 }
 
 let root: ShadowRoot | null = null
@@ -254,6 +262,7 @@ function saveToStorage() {
     ratioY: c.ratioY,
     text: c.text,
     source: c.source,
+    component: c.component,
   }))
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
@@ -275,7 +284,15 @@ function loadFromStorage() {
   for (const item of data) {
     const el = document.querySelector(item.selector)
     if (!el) continue // page structure changed since this was saved; skip it
-    comments.push({ id: item.id, el, ratioX: item.ratioX, ratioY: item.ratioY, text: item.text, source: item.source })
+    comments.push({
+      id: item.id,
+      el,
+      ratioX: item.ratioX,
+      ratioY: item.ratioY,
+      text: item.text,
+      source: item.source,
+      component: item.component,
+    })
   }
 }
 
@@ -461,6 +478,7 @@ function submitDraft(rawText: string) {
       ratioY: draft.ratioY,
       text,
       source: getSourceLocation(draft.el),
+      component: getComponentInfo(draft.el),
     })
   }
 
@@ -485,7 +503,8 @@ export function buildCommentsPrompt(): string | null {
 
   const lines = comments.map((c) => {
     const location = c.source ? `${c.source.file}:${c.source.line}:${c.source.column}` : buildUniqueSelector(c.el)
-    return `${c.id}. [${location}] ${c.text}`
+    const component = c.component ? `<${c.component.name}> ` : ''
+    return `${c.id}. [${component}${location}] ${c.text}`
   })
 
   return [

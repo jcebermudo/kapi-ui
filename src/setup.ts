@@ -40,26 +40,21 @@ function parseFrameworkFlag(): Framework | null {
 
 async function setup() {
   console.log(`
-██   ██  █████  ██████  ██ 
-██  ██  ██   ██ ██   ██ ██ 
-█████   ███████ ██████  ██ 
-██  ██  ██   ██ ██      ██ 
-██   ██ ██   ██ ██      ██                            
+██   ██  █████  ██████  ██
+██  ██  ██   ██ ██   ██ ██
+█████   ███████ ██████  ██
+██  ██  ██   ██ ██      ██
+██   ██ ██   ██ ██      ██
   `);
 
-  const response = await prompts({
-    type: 'select',
-    name: 'setupChoice',
-    message: 'Setup',
-    choices: [
-      { title: 'Vite', value: 'vite'},
-      { title: 'Nuxt', value: 'nuxt'},
-    ],
-  })
+  const cwd = process.cwd()
+  const framework = parseFrameworkFlag() ?? detectFramework(cwd)
 
-  if (!response.setupChoice) {
-    console.log('Setup cancelled.')
-    process.exit(0)
+  if (!framework) {
+    console.error(`Could not detect a Vue project in ${cwd}.`)
+    console.error(`kapi-ui only supports Vue apps (Vite + Vue, or Nuxt).`)
+    console.error(`If this is a Vue project, re-run with --vite or --nuxt to skip detection.`)
+    process.exit(1)
   }
 
   const { label, inject, manualInstructions } = FRAMEWORK_SETUP[framework]

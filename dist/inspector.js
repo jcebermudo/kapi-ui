@@ -130,6 +130,7 @@ export function describeElement(el) {
         classes: [...el.classList],
         selector: buildSelectorPath(el),
         source: getSourceLocation(el),
+        component: getComponentInfo(el),
     };
 }
 function paintHighlight(el) {

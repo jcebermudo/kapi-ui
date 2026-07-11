@@ -159,6 +159,7 @@ export interface ElementLocation {
   classes: string[]
   selector: string
   source: SourceLocation | null
+  component: ComponentInfo | null
 }
 
 export function describeElement(el: Element): ElementLocation {
@@ -168,6 +169,7 @@ export function describeElement(el: Element): ElementLocation {
     classes: [...el.classList],
     selector: buildSelectorPath(el),
     source: getSourceLocation(el),
+    component: getComponentInfo(el),
   }
 }
 
