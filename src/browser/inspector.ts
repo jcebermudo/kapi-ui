@@ -255,6 +255,10 @@ export function setDisabled(value: boolean) {
   if (disabled) stopInspecting()
 }
 
+export function isDisabled(): boolean {
+  return disabled
+}
+
 export function clearHighlightIfNotInspecting() {
   if (!active) clearHighlight()
 }

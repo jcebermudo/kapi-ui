@@ -1,10 +1,11 @@
 import http from "http";
-import { spawn } from "child_process";
+import { spawn, type ChildProcess } from "child_process";
 import { WebSocketServer, WebSocket } from "ws";
 
 let sessionId: string | null = null;
 let portPromise: Promise<number> | null = null;
 let serverStarted = false;
+const claudeProcessBySocket = new WeakMap<WebSocket, ChildProcess>();
 
 export function getSessionId() {
   return sessionId;
@@ -108,6 +109,8 @@ function processComments(prompt: string, socket: WebSocket) {
     { stdio: ["ignore", "pipe", "pipe"] },
   );
 
+  claudeProcessBySocket.set(socket, claude);
+
   let buffer = "";
   claude.stdout.on("data", (chunk) => {
     buffer += chunk.toString();
@@ -133,6 +136,7 @@ function processComments(prompt: string, socket: WebSocket) {
   claude.stderr.pipe(process.stderr);
 
   claude.on("close", () => {
+    claudeProcessBySocket.delete(socket);
     send(socket, { type: "comments:done" });
   });
 }
@@ -161,6 +165,14 @@ export function startServer(portNumber: number): Promise<number> {
         try {
           const msg = JSON.parse(data.toString());
           if (msg.type === "comments:submit") processComments(msg.prompt, socket);
+          else if (msg.type === "comments:stop") {
+            const claudeProcess = claudeProcessBySocket.get(socket);
+            if (claudeProcess) {
+              console.log("[kapi] stopping claude process");
+              claudeProcess.kill();
+              claudeProcessBySocket.delete(socket);
+            }
+          }
         } catch {
           /* ignore malformed messages */
         }

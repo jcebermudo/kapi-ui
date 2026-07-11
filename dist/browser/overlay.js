@@ -1,8 +1,8 @@
 import { startInspecting, stopInspecting, setOnHover, setOnElementClick, setDisabled, describeElement } from './inspector.js';
 import { updateHoverPanel, showProcessingStatus } from './hover-panel.js';
 import { beginComment, clearAllComments, cancelOpenDraft, buildCommentsPrompt } from './comments.js';
-import { connectSocket, sendComments, setOnCommentsDone, setOnCommentsProcessing } from './socket.js';
-import { LOGO_SVG, AI_SVG, DELETE_SVG } from './icons.js';
+import { connectSocket, sendComments, stopComments, setOnCommentsDone, setOnCommentsProcessing } from './socket.js';
+import { LOGO_SVG, AI_SVG, DELETE_SVG, STOP_SVG } from './icons.js';
 const KAPI_TAG = 'kapi-overlay';
 const POSITION_KEY = 'kapi-overlay-position';
 const DRAG_THRESHOLD = 4;
@@ -125,6 +125,36 @@ const STYLES = `
     }
   }
 
+  @keyframes kapi-icon-fade-out {
+    from {
+      opacity: 1;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+  }
+
+  @keyframes kapi-icon-fade-in {
+    from {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .kapi-logo-btn.kapi-animating-out {
+    animation: kapi-icon-fade-out 200ms ease;
+  }
+
+  .kapi-logo-btn.kapi-animating-in {
+    animation: kapi-icon-fade-in 200ms ease;
+  }
+
   .kapi-ai-icon {
     width: 16.5px;
     height: auto;
@@ -133,6 +163,35 @@ const STYLES = `
   .kapi-delete-icon {
     width: 15.5px;
     height: auto;
+    color: white;
+    transition: color 150ms ease;
+  }
+
+  .kapi-btn:has(.kapi-delete-icon):hover,
+  .kapi-btn:has(.kapi-delete-icon):active {
+    background: rgba(255, 77, 79, 0.15);
+  }
+
+  .kapi-btn:hover .kapi-delete-icon,
+  .kapi-btn:active .kapi-delete-icon {
+    color: #ff4d4f;
+  }
+
+  .kapi-stop-icon {
+    width: 20px;
+    height: auto;
+    transition: stroke 150ms ease, color 150ms ease;
+  }
+
+  .kapi-logo-btn.kapi-stop-mode:hover .kapi-stop-icon,
+  .kapi-logo-btn.kapi-stop-mode:active .kapi-stop-icon {
+    stroke: #ff4d4f;
+    color: #ff4d4f;
+  }
+
+  .kapi-logo-btn.kapi-stop-mode:hover,
+  .kapi-logo-btn.kapi-stop-mode:active {
+    background: rgba(255, 77, 79, 0.15);
   }
 
   .kapi-extra {
@@ -255,16 +314,70 @@ export function insertOverlay() {
     setOnElementClick((el, clientX, clientY) => {
         beginComment(el, clientX, clientY);
     });
+    let isProcessing = false;
+    let wasStopped = false;
+    const handleLogoClick = () => setExpanded(!expanded);
+    const handleStopClick = () => {
+        wasStopped = true;
+        stopComments();
+    };
+    let logoSwapTimeout = null;
+    let logoSwapInnerTimeout = null;
+    const clearPendingLogoSwap = () => {
+        if (logoSwapTimeout !== null)
+            clearTimeout(logoSwapTimeout);
+        if (logoSwapInnerTimeout !== null)
+            clearTimeout(logoSwapInnerTimeout);
+        logoSwapTimeout = null;
+        logoSwapInnerTimeout = null;
+    };
+    const swapLogo = (svg) => {
+        clearPendingLogoSwap();
+        logoBtn.classList.remove('kapi-animating-in');
+        logoBtn.classList.add('kapi-animating-out');
+        logoSwapTimeout = setTimeout(() => {
+            logoBtn.innerHTML = svg;
+            logoBtn.classList.remove('kapi-animating-out');
+            logoBtn.classList.add('kapi-animating-in');
+            logoSwapInnerTimeout = setTimeout(() => {
+                logoBtn.classList.remove('kapi-animating-in');
+                logoSwapInnerTimeout = null;
+            }, 200);
+            logoSwapTimeout = null;
+        }, 200);
+    };
+    const swapLogoToStop = () => {
+        swapLogo(STOP_SVG);
+        logoBtn.classList.add('kapi-stop-mode');
+        logoBtn.removeEventListener('click', handleLogoClick);
+        logoBtn.addEventListener('click', handleStopClick);
+    };
+    const restoreLogoFromStop = () => {
+        swapLogo(LOGO_SVG);
+        logoBtn.classList.remove('kapi-stop-mode');
+        logoBtn.removeEventListener('click', handleStopClick);
+        logoBtn.addEventListener('click', handleLogoClick);
+    };
     setOnCommentsProcessing((status) => {
+        if (isProcessing) {
+            showProcessingStatus(status);
+            return;
+        }
         cancelOpenDraft();
         setDisabled(true);
+        isProcessing = true;
+        wasStopped = false;
+        setExpanded(false);
+        swapLogoToStop();
         showProcessingStatus(status);
     });
     setOnCommentsDone(() => {
-        clearAllComments();
+        isProcessing = false;
+        restoreLogoFromStop();
+        if (!wasStopped)
+            clearAllComments();
         setDisabled(false);
-        if (expanded)
-            startInspecting();
+        setExpanded(true);
         updateHoverPanel(null);
     });
     let expanded = false;
@@ -327,7 +440,7 @@ export function insertOverlay() {
         e.stopPropagation();
         logoBtn.removeEventListener('click', suppressNextClick, true);
     };
-    logoBtn.addEventListener('click', () => setExpanded(!expanded));
+    logoBtn.addEventListener('click', handleLogoClick);
     logoBtn.addEventListener('pointerdown', (e) => {
         if (e.button !== 0 && e.pointerType === 'mouse')
             return;

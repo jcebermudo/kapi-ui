@@ -4,6 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 let sessionId = null;
 let portPromise = null;
 let serverStarted = false;
+const claudeProcessBySocket = new WeakMap();
 export function getSessionId() {
     return sessionId;
 }
@@ -87,6 +88,7 @@ function processComments(prompt, socket) {
     }
     send(socket, { type: "comments:processing", status: "Starting..." });
     const claude = spawn("claude", ["-p", "--resume", sessionId, "--permission-mode", "acceptEdits", prompt, "--output-format", "stream-json", "--verbose"], { stdio: ["ignore", "pipe", "pipe"] });
+    claudeProcessBySocket.set(socket, claude);
     let buffer = "";
     claude.stdout.on("data", (chunk) => {
         buffer += chunk.toString();
@@ -112,6 +114,7 @@ function processComments(prompt, socket) {
     });
     claude.stderr.pipe(process.stderr);
     claude.on("close", () => {
+        claudeProcessBySocket.delete(socket);
         send(socket, { type: "comments:done" });
     });
 }
@@ -137,6 +140,14 @@ export function startServer(portNumber) {
                     const msg = JSON.parse(data.toString());
                     if (msg.type === "comments:submit")
                         processComments(msg.prompt, socket);
+                    else if (msg.type === "comments:stop") {
+                        const claudeProcess = claudeProcessBySocket.get(socket);
+                        if (claudeProcess) {
+                            console.log("[kapi] stopping claude process");
+                            claudeProcess.kill();
+                            claudeProcessBySocket.delete(socket);
+                        }
+                    }
                 }
                 catch {
                     /* ignore malformed messages */
