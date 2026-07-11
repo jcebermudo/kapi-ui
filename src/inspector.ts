@@ -101,37 +101,12 @@ export function getSourceLocation(el: Element): SourceLocation | null {
   }
 }
 
-export interface ComponentInfo {
-  name: string
-  file: string | null
-}
-
-// Vue's renderer stamps every DOM node it creates with a non-enumerable
-// `__vueParentComponent` pointing at the component instance whose render()
-// produced it, so this reads straight off the element instead of walking the
-// DOM for a compile-time attribute. `type.__file` is populated by
-// @vitejs/plugin-vue in dev builds for devtools, at no extra cost to us.
-interface VueComponentInstance {
-  type: { name?: string; __name?: string; __file?: string }
-}
-
-export function getComponentInfo(el: Element): ComponentInfo | null {
-  const instance = (el as Element & { __vueParentComponent?: VueComponentInstance }).__vueParentComponent
-  if (!instance) return null
-
-  const name = instance.type.name || instance.type.__name
-  if (!name) return null
-
-  return { name, file: instance.type.__file ?? null }
-}
-
 export interface ElementLocation {
   tag: string
   id: string | null
   classes: string[]
   selector: string
   source: SourceLocation | null
-  component: ComponentInfo | null
 }
 
 export function describeElement(el: Element): ElementLocation {
@@ -141,7 +116,6 @@ export function describeElement(el: Element): ElementLocation {
     classes: [...el.classList],
     selector: buildSelectorPath(el),
     source: getSourceLocation(el),
-    component: getComponentInfo(el),
   }
 }
 
