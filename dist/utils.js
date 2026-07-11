@@ -12,7 +12,7 @@ export function installKapi(cwd) {
     console.log(`Installing ${KAPI_PACKAGE_NAME}...`);
     execSync(`npm install ${KAPI_PACKAGE_NAME} -D`, { cwd, stdio: 'inherit' });
 }
-export const NUXT_CONFIG_CANDIDATES = ['nuxt.config.ts', 'nuxt.config.js', 'nuxt.config.mjs', 'nuxt.config.mts', 'nuxt.config.cjs'];
+const NUXT_CONFIG_CANDIDATES = ['nuxt.config.ts', 'nuxt.config.js', 'nuxt.config.mjs', 'nuxt.config.mts', 'nuxt.config.cjs'];
 // kapi only supports Vue apps, so setup detects which of the two Vue build
 // tools it's dealing with instead of asking — a nuxt.config file means Nuxt
 // (Nuxt apps don't always list `vue` as a direct dependency), otherwise a
@@ -23,14 +23,9 @@ export function detectFramework(cwd) {
     const pkgPath = path.join(cwd, 'package.json');
     if (!existsSync(pkgPath))
         return null;
-    try {
-        const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
-        const hasVue = Boolean(pkg.dependencies?.vue || pkg.devDependencies?.vue);
-        return hasVue ? 'vite' : null;
-    }
-    catch {
-        return null;
-    }
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+    const hasVue = Boolean(pkg.dependencies?.vue || pkg.devDependencies?.vue);
+    return hasVue ? 'vite' : null;
 }
 export async function injectVitePlugin(cwd) {
     const candidates = ['vite.config.ts', 'vite.config.js', 'vite.config.mjs'];
@@ -55,7 +50,8 @@ export async function injectVitePlugin(cwd) {
     console.log(`✔ Added kapi plugin to ${configFile}`);
 }
 export async function injectNuxtModule(cwd) {
-    const configFile = NUXT_CONFIG_CANDIDATES.find((f) => existsSync(path.join(cwd, f)));
+    const candidates = ['nuxt.config.ts', 'nuxt.config.js', 'nuxt.config.mjs'];
+    const configFile = candidates.find((f) => existsSync(path.join(cwd, f)));
     if (!configFile) {
         throw new Error('No nuxt.config found.');
     }

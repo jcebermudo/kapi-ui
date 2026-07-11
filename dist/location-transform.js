@@ -19,29 +19,29 @@ function stampElements(node, relativeFile, inserts) {
  * them, rather than approximated with a regex.
  */
 export function stampTemplateLocations(code, relativeFile) {
+    let descriptor;
     try {
-        const { descriptor } = parse(code, { filename: relativeFile });
-        const template = descriptor.template;
-        if (!template || !template.ast)
-            return code;
-        const inserts = [];
-        for (const child of template.ast.children)
-            stampElements(child, relativeFile, inserts);
-        if (inserts.length === 0)
-            return code;
-        let result = '';
-        let cursor = 0;
-        for (const { offset, text } of inserts) {
-            result += code.slice(cursor, offset) + text;
-            cursor = offset;
-        }
-        result += code.slice(cursor);
-        return result;
+        ;
+        ({ descriptor } = parse(code, { filename: relativeFile }));
     }
     catch {
-        // Malformed input or a pathologically deep template (e.g. stack overflow
-        // in the recursive walk) — degrade to untouched source rather than
-        // breaking the dev-server transform for this file.
         return code;
     }
+    const template = descriptor.template;
+    if (!template || !template.ast)
+        return code;
+    const inserts = [];
+    for (const child of template.ast.children)
+        stampElements(child, relativeFile, inserts);
+    if (inserts.length === 0)
+        return code;
+    inserts.sort((a, b) => a.offset - b.offset);
+    let result = '';
+    let cursor = 0;
+    for (const { offset, text } of inserts) {
+        result += code.slice(cursor, offset) + text;
+        cursor = offset;
+    }
+    result += code.slice(cursor);
+    return result;
 }
