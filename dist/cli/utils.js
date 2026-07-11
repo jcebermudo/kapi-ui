@@ -4,8 +4,8 @@ import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
-// dist/utils.js -> package root (one level up from dist/)
-const kapiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// dist/cli/utils.js -> package root (two levels up from dist/cli/)
+const kapiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const kapiPkg = JSON.parse(readFileSync(path.join(kapiRoot, 'package.json'), 'utf-8'));
 export const KAPI_PACKAGE_NAME = kapiPkg.name;
 export function installKapi(cwd) {
