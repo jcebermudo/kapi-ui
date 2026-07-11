@@ -1,4 +1,4 @@
-import { lockHighlightOn, unlockHighlight, getSourceLocation } from './inspector.js';
+import { lockHighlightOn, unlockHighlight, getSourceLocation, getComponentInfo, } from './inspector.js';
 import { ARROW_SVG } from './icons.js';
 const TAG = 'kapi-comments';
 const STORAGE_KEY = `kapi-comments:${location.pathname}`;
@@ -212,6 +212,7 @@ function saveToStorage() {
         ratioY: c.ratioY,
         text: c.text,
         source: c.source,
+        component: c.component,
     }));
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -235,7 +236,15 @@ function loadFromStorage() {
         const el = document.querySelector(item.selector);
         if (!el)
             continue; // page structure changed since this was saved; skip it
-        comments.push({ id: item.id, el, ratioX: item.ratioX, ratioY: item.ratioY, text: item.text, source: item.source });
+        comments.push({
+            id: item.id,
+            el,
+            ratioX: item.ratioX,
+            ratioY: item.ratioY,
+            text: item.text,
+            source: item.source,
+            component: item.component,
+        });
     }
 }
 function ensureRoot() {
@@ -266,6 +275,12 @@ function renderMarker(entry) {
     marker.textContent = String(entry.id);
     const tooltip = document.createElement('div');
     tooltip.className = 'kapi-comment-tooltip';
+    if (entry.component) {
+        const componentEl = document.createElement('div');
+        componentEl.className = 'kapi-comment-tooltip-source';
+        componentEl.textContent = `<${entry.component.name}>`;
+        tooltip.appendChild(componentEl);
+    }
     if (entry.source) {
         const sourceEl = document.createElement('div');
         sourceEl.className = 'kapi-comment-tooltip-source';
@@ -389,6 +404,7 @@ function submitDraft(rawText) {
             ratioY: draft.ratioY,
             text,
             source: getSourceLocation(draft.el),
+            component: getComponentInfo(draft.el),
         });
     }
     draft = null;
@@ -410,7 +426,8 @@ export function buildCommentsPrompt() {
         return null;
     const lines = comments.map((c) => {
         const location = c.source ? `${c.source.file}:${c.source.line}:${c.source.column}` : buildUniqueSelector(c.el);
-        return `${c.id}. [${location}] ${c.text}`;
+        const component = c.component ? `<${c.component.name}> ` : '';
+        return `${c.id}. [${component}${location}] ${c.text}`;
     });
     return [
         'Address each of the following review comments left on specific elements in this app:',

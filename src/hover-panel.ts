@@ -39,9 +39,13 @@ const STYLES = `
     font-weight: 600;
   }
 
-  .kapi-hover-panel-source {
+  .kapi-hover-panel-component {
     color: rgb(74, 222, 128);
     font-weight: 600;
+  }
+
+  .kapi-hover-panel-source {
+    color: rgba(255, 255, 255, 0.5);
     margin-bottom: 2px;
   }
 
@@ -101,6 +105,13 @@ export function updateHoverPanel(location: ElementLocation | null) {
   }
 
   el.replaceChildren()
+
+  if (location.component) {
+    const componentEl = document.createElement('div')
+    componentEl.className = 'kapi-hover-panel-component'
+    componentEl.textContent = `<${location.component.name}>`
+    el.appendChild(componentEl)
+  }
 
   if (location.source) {
     const sourceEl = document.createElement('div')

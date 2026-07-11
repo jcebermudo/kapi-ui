@@ -92,6 +92,15 @@ export function getSourceLocation(el) {
         column: Number(raw.slice(lastColon + 1)),
     };
 }
+export function getComponentInfo(el) {
+    const instance = el.__vueParentComponent;
+    if (!instance)
+        return null;
+    const name = instance.type.name || instance.type.__name;
+    if (!name)
+        return null;
+    return { name, file: instance.type.__file ?? null };
+}
 export function describeElement(el) {
     return {
         tag: el.tagName.toLowerCase(),
@@ -99,6 +108,7 @@ export function describeElement(el) {
         classes: [...el.classList],
         selector: buildSelectorPath(el),
         source: getSourceLocation(el),
+        component: getComponentInfo(el),
     };
 }
 function paintHighlight(el) {

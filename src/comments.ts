@@ -1,4 +1,11 @@
-import { lockHighlightOn, unlockHighlight, getSourceLocation, type SourceLocation } from './inspector.js'
+import {
+  lockHighlightOn,
+  unlockHighlight,
+  getSourceLocation,
+  getComponentInfo,
+  type SourceLocation,
+  type ComponentInfo,
+} from './inspector.js'
 import { ARROW_SVG } from './icons.js'
 
 const TAG = 'kapi-comments'
@@ -195,6 +202,7 @@ interface CommentEntry {
   ratioY: number
   text: string
   source: SourceLocation | null
+  component: ComponentInfo | null
 }
 
 interface Draft {
@@ -213,6 +221,7 @@ interface StoredComment {
   ratioY: number
   text: string
   source: SourceLocation | null
+  component: ComponentInfo | null
 }
 
 let root: ShadowRoot | null = null
@@ -246,6 +255,7 @@ function saveToStorage() {
     ratioY: c.ratioY,
     text: c.text,
     source: c.source,
+    component: c.component,
   }))
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
@@ -267,7 +277,15 @@ function loadFromStorage() {
   for (const item of data) {
     const el = document.querySelector(item.selector)
     if (!el) continue // page structure changed since this was saved; skip it
-    comments.push({ id: item.id, el, ratioX: item.ratioX, ratioY: item.ratioY, text: item.text, source: item.source })
+    comments.push({
+      id: item.id,
+      el,
+      ratioX: item.ratioX,
+      ratioY: item.ratioY,
+      text: item.text,
+      source: item.source,
+      component: item.component,
+    })
   }
 }
 
@@ -304,6 +322,13 @@ function renderMarker(entry: CommentEntry): HTMLElement {
 
   const tooltip = document.createElement('div')
   tooltip.className = 'kapi-comment-tooltip'
+
+  if (entry.component) {
+    const componentEl = document.createElement('div')
+    componentEl.className = 'kapi-comment-tooltip-source'
+    componentEl.textContent = `<${entry.component.name}>`
+    tooltip.appendChild(componentEl)
+  }
 
   if (entry.source) {
     const sourceEl = document.createElement('div')
@@ -449,6 +474,7 @@ function submitDraft(rawText: string) {
       ratioY: draft.ratioY,
       text,
       source: getSourceLocation(draft.el),
+      component: getComponentInfo(draft.el),
     })
   }
 
@@ -473,7 +499,8 @@ export function buildCommentsPrompt(): string | null {
 
   const lines = comments.map((c) => {
     const location = c.source ? `${c.source.file}:${c.source.line}:${c.source.column}` : buildUniqueSelector(c.el)
-    return `${c.id}. [${location}] ${c.text}`
+    const component = c.component ? `<${c.component.name}> ` : ''
+    return `${c.id}. [${component}${location}] ${c.text}`
   })
 
   return [
