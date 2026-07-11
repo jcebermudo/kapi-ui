@@ -1,4 +1,4 @@
-import { lockHighlightOn, unlockHighlight, getSourceLocation, getComponentInfo, renderComponentBadge, } from './inspector.js';
+import { lockHighlightOn, unlockHighlight, clearHighlightIfNotInspecting, getSourceLocation, getComponentInfo, renderComponentBadge, } from './inspector.js';
 import { ARROW_SVG } from './icons.js';
 const TAG = 'kapi-comments';
 const STORAGE_KEY = `kapi-comments:${location.pathname}`;
@@ -386,6 +386,17 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && draft)
         cancelDraft();
 }, true);
+document.addEventListener('click', (e) => {
+    if (!draft || !root)
+        return;
+    const target = e.target;
+    const kapiHost = root.host;
+    if (!kapiHost.contains(target)) {
+        e.stopImmediatePropagation();
+        cancelDraft();
+        clearHighlightIfNotInspecting();
+    }
+}, true);
 function submitDraft(rawText) {
     if (!draft)
         return;
@@ -430,7 +441,7 @@ export function buildCommentsPrompt() {
     const lines = comments.map((c) => {
         const location = c.source ? `${c.source.file}:${c.source.line}:${c.source.column}` : buildUniqueSelector(c.el);
         const component = c.component ? `<${c.component.name}> ` : '';
-        return `${c.id}. [${component}${location}] ${c.text}`;
+        return `${c.id}. [${component}${location}] feedback: ${c.text}`;
     });
     return [
         'Address each of the following review comments left on specific elements in this app:',
@@ -454,7 +465,7 @@ export function clearAllComments() {
 }
 export function beginComment(el, clientX, clientY) {
     if (draft)
-        return; // a draft is already open; must be sent (or Escaped) before starting another
+        return;
     const rect = el.getBoundingClientRect();
     const ratioX = rect.width > 0 ? clamp((clientX - rect.left) / rect.width, 0, 1) : 0.5;
     const ratioY = rect.height > 0 ? clamp((clientY - rect.top) / rect.height, 0, 1) : 0.5;
@@ -464,7 +475,7 @@ export function beginComment(el, clientX, clientY) {
 }
 function beginEdit(entry) {
     if (draft)
-        return; // a draft is already open; must be sent (or Escaped) before starting another
+        cancelDraft();
     draft = { el: entry.el, ratioX: entry.ratioX, ratioY: entry.ratioY, id: entry.id, text: entry.text };
     lockHighlightOn(entry.el);
     render();

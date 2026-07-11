@@ -1,6 +1,7 @@
 import {
   lockHighlightOn,
   unlockHighlight,
+  clearHighlightIfNotInspecting,
   getSourceLocation,
   getComponentInfo,
   renderComponentBadge,
@@ -459,6 +460,21 @@ document.addEventListener(
   true,
 )
 
+document.addEventListener(
+  'click',
+  (e) => {
+    if (!draft || !root) return
+    const target = e.target as Node
+    const kapiHost = root.host
+    if (!kapiHost.contains(target)) {
+      e.stopImmediatePropagation()
+      cancelDraft()
+      clearHighlightIfNotInspecting()
+    }
+  },
+  true,
+)
+
 function submitDraft(rawText: string) {
   if (!draft) return
   const text = rawText.trim()
@@ -504,7 +520,7 @@ export function buildCommentsPrompt(): string | null {
   const lines = comments.map((c) => {
     const location = c.source ? `${c.source.file}:${c.source.line}:${c.source.column}` : buildUniqueSelector(c.el)
     const component = c.component ? `<${c.component.name}> ` : ''
-    return `${c.id}. [${component}${location}] ${c.text}`
+    return `${c.id}. [${component}${location}] feedback: ${c.text}`
   })
 
   return [
@@ -529,7 +545,7 @@ export function clearAllComments() {
 }
 
 export function beginComment(el: Element, clientX: number, clientY: number) {
-  if (draft) return // a draft is already open; must be sent (or Escaped) before starting another
+  if (draft) return
 
   const rect = el.getBoundingClientRect()
   const ratioX = rect.width > 0 ? clamp((clientX - rect.left) / rect.width, 0, 1) : 0.5
@@ -541,7 +557,7 @@ export function beginComment(el: Element, clientX: number, clientY: number) {
 }
 
 function beginEdit(entry: CommentEntry) {
-  if (draft) return // a draft is already open; must be sent (or Escaped) before starting another
+  if (draft) cancelDraft()
 
   draft = { el: entry.el, ratioX: entry.ratioX, ratioY: entry.ratioY, id: entry.id, text: entry.text }
   lockHighlightOn(entry.el)
