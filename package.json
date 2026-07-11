@@ -43,8 +43,6 @@
   },
   "dependencies": {
     "@nuxt/kit": "^3.14.0",
-    "@vue/compiler-core": "^3.5.39",
-    "@vue/compiler-sfc": "^3.5.39",
     "magicast": "^0.5.3",
     "prompts": "^2.4.2",
     "ws": "^8.21.0"
