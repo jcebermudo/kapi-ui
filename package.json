@@ -11,11 +11,11 @@
     "dist"
   ],
   "bin": {
-    "kapi-ui": "dist/setup.js"
+    "kapi-ui": "dist/cli/setup.js"
   },
   "exports": {
-    "./vite-plugin": "./dist/vite-plugin.js",
-    "./nuxt": "./dist/nuxt-module.js"
+    "./vite-plugin": "./dist/node/vite-plugin.js",
+    "./nuxt": "./dist/node/nuxt-module.js"
   },
   "repository": {
     "type": "git",
