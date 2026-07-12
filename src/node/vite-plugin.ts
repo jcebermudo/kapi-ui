@@ -48,10 +48,21 @@ export default function kapi(): Plugin {
       if (serverPort === null) {
         serverPort = await startServer(KAPI_SERVER_PORT)
       }
-      return html.replace(
-        '</body>',
-        `<script>window.__KAPI_PORT__ = ${serverPort}</script><script type="module" src="/@kapi-ui/overlay"></script></body>`,
-      )
+      return {
+        html,
+        tags: [
+          {
+            tag: 'script',
+            children: `window.__KAPI_PORT__ = ${serverPort}`,
+            injectTo: 'body',
+          },
+          {
+            tag: 'script',
+            attrs: { type: 'module', src: '/@kapi-ui/overlay' },
+            injectTo: 'body',
+          },
+        ],
+      }
     },
   }
 }
