@@ -12,6 +12,7 @@ const overlayPath = path.resolve(__dirname, '../browser/overlay.js')
 export default function kapi(): Plugin {
   let isDev = false
   let serverPort: number | null = null
+  const vueFileRegex = /\.vue$/ 
 
   return {
     name: 'kapi-ui',
@@ -34,14 +35,18 @@ export default function kapi(): Plugin {
     resolveId(id: string) {
       if (id === '/@kapi-ui/overlay') return overlayPath
     },
-    transform(code: string, id: string) {
-      if (!isDev) return
-      const [bareId] = id.split('?')
-      if (!bareId.endsWith('.vue')) return
-      if (bareId.includes('/node_modules/')) return
-
-      const relativeFile = path.relative(process.cwd(), bareId)
-      return { code: stampTemplateLocations(code, relativeFile), map: null }
+    transform: {
+      filter: {
+        id: vueFileRegex,
+      },
+      handler(code: string, id: string) {
+        if (!isDev) return
+        const [bareId] = id.split('?')
+        if (!bareId.endsWith('.vue')) return
+        if (bareId.includes('/node_modules/')) return
+        const relativeFile = path.relative(process.cwd(), bareId)
+        return { code: stampTemplateLocations(code, relativeFile), map: null }
+      },
     },
     async transformIndexHtml(html: string) {
       if (!isDev) return

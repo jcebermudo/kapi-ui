@@ -9,6 +9,7 @@ const overlayPath = path.resolve(__dirname, '../browser/overlay.js');
 export default function kapi() {
     let isDev = false;
     let serverPort = null;
+    const vueFileRegex = /\.vue$/;
     return {
         name: 'kapi-ui',
         enforce: 'pre',
@@ -31,16 +32,21 @@ export default function kapi() {
             if (id === '/@kapi-ui/overlay')
                 return overlayPath;
         },
-        transform(code, id) {
-            if (!isDev)
-                return;
-            const [bareId] = id.split('?');
-            if (!bareId.endsWith('.vue'))
-                return;
-            if (bareId.includes('/node_modules/'))
-                return;
-            const relativeFile = path.relative(process.cwd(), bareId);
-            return { code: stampTemplateLocations(code, relativeFile), map: null };
+        transform: {
+            filter: {
+                id: vueFileRegex,
+            },
+            handler(code, id) {
+                if (!isDev)
+                    return;
+                const [bareId] = id.split('?');
+                if (!bareId.endsWith('.vue'))
+                    return;
+                if (bareId.includes('/node_modules/'))
+                    return;
+                const relativeFile = path.relative(process.cwd(), bareId);
+                return { code: stampTemplateLocations(code, relativeFile), map: null };
+            },
         },
         async transformIndexHtml(html) {
             if (!isDev)
