@@ -7,14 +7,13 @@ import { KAPI_SERVER_PORT } from '../constants.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const overlayPath = path.resolve(__dirname, '../browser/overlay.js');
 export default function kapi() {
-    let isDev = false;
     let serverPort = null;
     const vueFileRegex = /\.vue$/;
     return {
         name: 'kapi-ui',
         enforce: 'pre',
-        config(_config, { command }) {
-            isDev = command === 'serve';
+        apply: 'serve',
+        config() {
             return {
                 server: {
                     fs: {
@@ -24,8 +23,12 @@ export default function kapi() {
             };
         },
         configureServer() {
-            startServer(KAPI_SERVER_PORT).then(port => {
+            startServer(KAPI_SERVER_PORT)
+                .then(port => {
                 serverPort = port;
+            })
+                .catch(err => {
+                console.error('[kapi] failed to start server', err);
             });
         },
         resolveId(id) {
@@ -37,8 +40,6 @@ export default function kapi() {
                 id: vueFileRegex,
             },
             handler(code, id) {
-                if (!isDev)
-                    return;
                 const [bareId] = id.split('?');
                 if (!bareId.endsWith('.vue'))
                     return;
@@ -49,8 +50,6 @@ export default function kapi() {
             },
         },
         async transformIndexHtml(html) {
-            if (!isDev)
-                return;
             if (serverPort === null) {
                 serverPort = await startServer(KAPI_SERVER_PORT);
             }

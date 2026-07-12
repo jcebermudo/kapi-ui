@@ -10,15 +10,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const overlayPath = path.resolve(__dirname, '../browser/overlay.js')
 
 export default function kapi(): Plugin {
-  let isDev = false
   let serverPort: number | null = null
-  const vueFileRegex = /\.vue$/ 
+  const vueFileRegex = /\.vue$/
 
   return {
     name: 'kapi-ui',
     enforce: 'pre',
-    config(_config, { command }) {
-      isDev = command === 'serve'
+    apply: 'serve',
+    config() {
       return {
         server: {
           fs: {
@@ -28,9 +27,13 @@ export default function kapi(): Plugin {
       }
     },
     configureServer() {
-      startServer(KAPI_SERVER_PORT).then(port => {
-        serverPort = port
-      })
+      startServer(KAPI_SERVER_PORT)
+        .then(port => {
+          serverPort = port
+        })
+        .catch(err => {
+          console.error('[kapi] failed to start server', err)
+        })
     },
     resolveId(id: string) {
       if (id === '/@kapi-ui/overlay') return overlayPath
@@ -40,7 +43,6 @@ export default function kapi(): Plugin {
         id: vueFileRegex,
       },
       handler(code: string, id: string) {
-        if (!isDev) return
         const [bareId] = id.split('?')
         if (!bareId.endsWith('.vue')) return
         if (bareId.includes('/node_modules/')) return
@@ -49,7 +51,6 @@ export default function kapi(): Plugin {
       },
     },
     async transformIndexHtml(html: string) {
-      if (!isDev) return
       if (serverPort === null) {
         serverPort = await startServer(KAPI_SERVER_PORT)
       }
