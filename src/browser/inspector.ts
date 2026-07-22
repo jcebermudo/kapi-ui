@@ -1,3 +1,6 @@
+import type { SourceLocation } from './trace-record.js'
+import { findTraceFromElement } from './trace-record.js'
+
 const HIGHLIGHT_COLOR = '34, 197, 94' // green-500, as an rgb triplet for reuse in rgba()
 const IGNORE_SELECTOR = 'kapi-overlay, kapi-hover-panel, kapi-comments'
 
@@ -79,26 +82,25 @@ function buildSelectorPath(el: Element): string {
   return parts.join(' > ') || el.tagName.toLowerCase()
 }
 
-export interface SourceLocation {
-  file: string
-  line: number
-  column: number
-}
+export type { SourceLocation }
 
+// Most elements resolve directly via `el.__vnode` (see trace-record.ts). The
+// ancestor walk below exists for the elements that can't: plain text nodes
+// (no vnode at all), `_createStaticVNode` content (raw innerHTML — Vue never
+// creates individual vnodes for its inner elements), and vnodes Vue cloned
+// *with* extra props (`cloneVNode(vnode, extraProps)` builds a fresh `props`
+// object via `mergeProps`, breaking the WeakMap identity link — a clone with
+// no extraProps reuses the same `props` reference and resolves directly).
+// In all of these, the nearest traced ancestor is the best available
+// approximation.
 export function getSourceLocation(el: Element): SourceLocation | null {
-  const host = el.closest('[data-kapi-loc]')
-  if (!host) return null
-
-  const raw = host.getAttribute('data-kapi-loc')!
-  const lastColon = raw.lastIndexOf(':')
-  const secondLastColon = raw.lastIndexOf(':', lastColon - 1)
-  if (lastColon === -1 || secondLastColon === -1) return null
-
-  return {
-    file: raw.slice(0, secondLastColon),
-    line: Number(raw.slice(secondLastColon + 1, lastColon)),
-    column: Number(raw.slice(lastColon + 1)),
+  let node: Element | null = el
+  while (node) {
+    const trace = findTraceFromElement(node)
+    if (trace) return trace
+    node = node.parentElement
   }
+  return null
 }
 
 export interface ComponentInfo {
@@ -121,13 +123,13 @@ export function getComponentInfo(el: Element): ComponentInfo | null {
   const instance = (el as Element & { __vueParentComponent?: VueComponentInstance }).__vueParentComponent
 
   if (!instance) {
-    // `data-kapi-loc` is stamped at build time onto real Vue template
-    // elements (see location-transform.ts), independently of this runtime
-    // property. If it's present but `__vueParentComponent` isn't, that's not
-    // "this element isn't Vue-managed" (the normal, silent null case) — it's
-    // a sign Vue renamed/removed this internal property, so warn once rather
-    // than degrading silently everywhere.
-    if (!warnedMissingComponentInfo && el.closest('[data-kapi-loc]')) {
+    // `el.__vnode` (see trace-record.ts) is a separate internal Vue
+    // back-reference from `__vueParentComponent`. If it's present but
+    // `__vueParentComponent` isn't, that's not "this element isn't
+    // Vue-managed" (the normal, silent null case) — it's a sign Vue
+    // renamed/removed this internal property, so warn once rather than
+    // degrading silently everywhere.
+    if (!warnedMissingComponentInfo && findTraceFromElement(el)) {
       warnedMissingComponentInfo = true
       console.warn(
         '[kapi] Could not resolve Vue component info for an element with a known source location. ' +
