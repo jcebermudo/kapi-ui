@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { createInterface } from 'readline/promises';
 import { stdin as input, stdout as output } from 'process';
 import { installKapi, injectVitePlugin, injectNuxtModule, detectFramework, detectInstalledAgents, KAPI_PACKAGE_NAME, } from './utils.js';
 const FRAMEWORK_SETUP = {
@@ -29,6 +28,66 @@ Add this manually to your vite.config:
 `,
     },
 };
+const AGENT_LABELS = {
+    claude: 'Claude Code',
+    codex: 'Codex',
+};
+// Minimal dependency-free single-select list: renders bulleted options and
+// lets the user move with ↑/↓ (or j/k) and confirm with Enter, redrawing the
+// list in place. Falls back to the default option when stdin isn't a TTY
+// (piped/CI), where raw-mode key reading isn't available.
+function promptSelect(question, options, defaultIndex = 0) {
+    return new Promise((resolve) => {
+        if (!input.isTTY) {
+            resolve(options[defaultIndex].value);
+            return;
+        }
+        let index = defaultIndex;
+        const render = (redraw) => {
+            if (redraw)
+                output.write(`[${options.length}A`); // move up over the option lines
+            for (let i = 0; i < options.length; i++) {
+                const selected = i === index;
+                // ● highlighted (cyan) for the current row, ○ for the rest.
+                const line = selected ? `[36m❯ ● ${options[i].label}[0m` : `  ○ ${options[i].label}`;
+                output.write(`[2K${line}\n`); // clear line, then draw
+            }
+        };
+        const cleanup = () => {
+            input.off('data', onData);
+            input.setRawMode(false);
+            input.pause();
+            output.write('[?25h'); // show cursor
+        };
+        const onData = (data) => {
+            const key = data.toString();
+            if (key === '') {
+                // Ctrl+C
+                cleanup();
+                output.write('\n');
+                process.exit(130);
+            }
+            else if (key === '[A' || key === 'k') {
+                index = (index - 1 + options.length) % options.length;
+                render(true);
+            }
+            else if (key === '[B' || key === 'j') {
+                index = (index + 1) % options.length;
+                render(true);
+            }
+            else if (key === '\r' || key === '\n') {
+                cleanup();
+                resolve(options[index].value);
+            }
+        };
+        output.write(`${question}\n[2m(↑/↓ to move · Enter to select)[0m\n`);
+        output.write('[?25l'); // hide cursor
+        render(false);
+        input.setRawMode(true);
+        input.resume();
+        input.on('data', onData);
+    });
+}
 function parseFrameworkFlag() {
     const args = process.argv.slice(2);
     if (args.includes('--nuxt'))
@@ -66,10 +125,7 @@ async function chooseAgent() {
     }
     if (installedAgents.length === 1)
         return installedAgents[0];
-    const rl = createInterface({ input, output });
-    const answer = await rl.question('Which coding agent should Kapi use?\n  1. Claude Code\n  2. Codex\n\nChoose [1]: ');
-    rl.close();
-    return answer.trim() === '2' ? 'codex' : 'claude';
+    return promptSelect('Which coding agent should Kapi use?', installedAgents.map((agent) => ({ label: AGENT_LABELS[agent], value: agent })));
 }
 async function setup() {
     console.log(`
