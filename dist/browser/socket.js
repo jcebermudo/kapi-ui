@@ -1,6 +1,7 @@
 let socket = null;
 let onCommentsDone = null;
 let onCommentsProcessing = null;
+let onCommentsError = null;
 export function connectSocket() {
     const port = window.__KAPI_PORT__ || 6767;
     socket = new WebSocket(`ws://localhost:${port}`);
@@ -14,6 +15,8 @@ export function connectSocket() {
                 onCommentsDone?.();
             if (msg.type === 'comments:processing')
                 onCommentsProcessing?.(msg.status);
+            if (msg.type === 'comments:error')
+                onCommentsError?.(msg.message);
         }
         catch {
             /* ignore malformed messages */
@@ -40,4 +43,7 @@ export function setOnCommentsDone(callback) {
 }
 export function setOnCommentsProcessing(callback) {
     onCommentsProcessing = callback;
+}
+export function setOnCommentsError(callback) {
+    onCommentsError = callback;
 }

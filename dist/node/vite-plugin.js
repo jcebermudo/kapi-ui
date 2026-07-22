@@ -56,7 +56,7 @@ function createUniqueIdentifier(base, identifiers) {
     identifiers.add(identifier);
     return identifier;
 }
-export default function kapi() {
+export default function kapi(options = {}) {
     let serverPort = null;
     return {
         name: 'kapi-ui',
@@ -75,7 +75,7 @@ export default function kapi() {
             };
         },
         configureServer() {
-            startServer(KAPI_SERVER_PORT)
+            startServer(KAPI_SERVER_PORT, options)
                 .then(port => {
                 serverPort = port;
             })
@@ -149,7 +149,7 @@ export default function kapi() {
         },
         async transformIndexHtml(html) {
             if (serverPort === null) {
-                serverPort = await startServer(KAPI_SERVER_PORT);
+                serverPort = await startServer(KAPI_SERVER_PORT, options);
             }
             return {
                 html,

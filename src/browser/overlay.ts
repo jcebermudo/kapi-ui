@@ -1,7 +1,7 @@
 import { startInspecting, stopInspecting, setOnHover, setOnElementClick, setDisabled, describeElement } from './inspector.js'
 import { updateHoverPanel, showProcessingStatus } from './hover-panel.js'
 import { beginComment, clearAllComments, cancelOpenDraft, buildCommentsPrompt } from './comments.js'
-import { connectSocket, sendComments, stopComments, setOnCommentsDone, setOnCommentsProcessing } from './socket.js'
+import { connectSocket, sendComments, stopComments, setOnCommentsDone, setOnCommentsError, setOnCommentsProcessing } from './socket.js'
 import { LOGO_SVG, AI_SVG, DELETE_SVG, STOP_SVG } from './icons.js'
 import styles from './overlay.css?inline'
 
@@ -161,6 +161,15 @@ export function insertOverlay() {
     logoBtn.addEventListener('click', handleLogoClick)
   }
 
+  const finishProcessing = (clearComments: boolean) => {
+    isProcessing = false
+    restoreLogoFromStop()
+    if (clearComments && !wasStopped) clearAllComments()
+    setDisabled(false)
+    setExpanded(true)
+    updateHoverPanel(null)
+  }
+
   // 5. Reflect comment-processing lifecycle events in the UI.
   setOnCommentsProcessing((status) => {
     if (isProcessing) {
@@ -177,12 +186,12 @@ export function insertOverlay() {
   })
 
   setOnCommentsDone(() => {
-    isProcessing = false
-    restoreLogoFromStop()
-    if (!wasStopped) clearAllComments()
-    setDisabled(false)
-    setExpanded(true)
-    updateHoverPanel(null)
+    finishProcessing(true)
+  })
+
+  setOnCommentsError((message) => {
+    finishProcessing(false)
+    showProcessingStatus(`Error: ${message}`)
   })
 
   // 6. Expand/collapse the toolbar and keep it on screen.

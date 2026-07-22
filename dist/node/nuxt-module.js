@@ -7,15 +7,15 @@ export default defineNuxtModule({
         name: 'kapi-ui',
         configKey: 'kapi',
     },
-    async setup(_options, nuxt) {
+    async setup(options, nuxt) {
         var _a;
         if (!nuxt.options.dev)
             return;
         // Nuxt renders HTML through Nitro, not Vite's transformIndexHtml, so the
         // overlay script (and the port it connects to) has to be injected via
         // unhead instead of the vite plugin.
-        addVitePlugin(kapiVitePlugin());
-        const serverPort = await startServer(KAPI_SERVER_PORT);
+        addVitePlugin(kapiVitePlugin(options));
+        const serverPort = await startServer(KAPI_SERVER_PORT, options);
         // Nuxt mounts Vite's dev middleware under app.buildAssetsDir (e.g. /_nuxt/),
         // not at the site root, so the script has to be requested from under that
         // prefix or Nitro's page renderer intercepts it before Vite ever sees it.

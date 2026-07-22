@@ -3,7 +3,7 @@ import { addVitePlugin, addNuxtModule } from 'magicast/helpers'
 import { existsSync, readFileSync } from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { execSync } from 'child_process'
+import { execSync, spawnSync } from 'child_process'
 
 // dist/cli/utils.js -> package root (two levels up from dist/cli/)
 const kapiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -16,6 +16,7 @@ export function installKapi(cwd: string) {
 }
 
 export type Framework = 'vite' | 'nuxt'
+export type CodingAgent = 'claude' | 'codex'
 
 export const NUXT_CONFIG_CANDIDATES = ['nuxt.config.ts', 'nuxt.config.js', 'nuxt.config.mjs', 'nuxt.config.mts', 'nuxt.config.cjs']
 export const VITE_CONFIG_CANDIDATES = ['vite.config.ts', 'vite.config.js', 'vite.config.mjs', 'vite.config.mts', 'vite.config.cjs']
@@ -39,7 +40,17 @@ export function detectFramework(cwd: string): Framework | null {
   }
 }
 
-export async function injectVitePlugin(cwd: string) {
+export function isAgentInstalled(agent: CodingAgent): boolean {
+  const result = spawnSync(agent, ['--version'], { stdio: 'ignore' })
+  const error = result.error as NodeJS.ErrnoException | undefined
+  return error?.code !== 'ENOENT'
+}
+
+export function detectInstalledAgents(): CodingAgent[] {
+  return (['claude', 'codex'] as const).filter(isAgentInstalled)
+}
+
+export async function injectVitePlugin(cwd: string, agent: CodingAgent) {
   const configFile = VITE_CONFIG_CANDIDATES.find((f) => existsSync(path.join(cwd, f)))
 
   if (!configFile) {
@@ -60,14 +71,15 @@ export async function injectVitePlugin(cwd: string) {
   addVitePlugin(mod, {
     from: importSpecifier,
     imported: 'default',
-    constructor: 'kapi'
+    constructor: 'kapi',
+    options: { agent },
   })
 
   await writeFile(mod, configPath)
   console.log(`✔ Added kapi plugin to ${configFile}`)
 }
 
-export async function injectNuxtModule(cwd: string) {
+export async function injectNuxtModule(cwd: string, agent: CodingAgent) {
   const configFile = NUXT_CONFIG_CANDIDATES.find((f) => existsSync(path.join(cwd, f)))
 
   if (!configFile) {
@@ -89,7 +101,7 @@ export async function injectNuxtModule(cwd: string) {
   // overlay can't be injected as a plain Vite plugin the way it is for Vite
   // apps. Registering it as a Nuxt module (kapi-ui/nuxt) lets it inject the
   // overlay script via unhead and add the Vite plugin through @nuxt/kit.
-  addNuxtModule(mod, moduleSpecifier)
+  addNuxtModule(mod, moduleSpecifier, 'kapi', { agent })
 
   await writeFile(mod, configPath)
   console.log(`✔ Added kapi module to ${configFile}`)

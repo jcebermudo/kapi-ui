@@ -5,8 +5,15 @@ import { searchForWorkspaceRoot } from 'vite'
 import { walk } from 'estree-walker'
 import MagicString from 'magic-string'
 import { SourceMapConsumer } from 'source-map-js'
-import { startServer } from './server.js'
+import { startServer, type KapiAgent } from './server.js'
 import { KAPI_SERVER_PORT } from '../constants.js'
+
+export type { KapiAgent } from './server.js'
+
+export interface KapiOptions {
+  /** CLI agent used to process comments. Defaults to Claude Code. */
+  agent?: KapiAgent
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const overlayPath = path.resolve(__dirname, '../browser/overlay.js')
@@ -60,7 +67,7 @@ function createUniqueIdentifier(base: string, identifiers: Set<string>): string 
   return identifier
 }
 
-export default function kapi(): Plugin {
+export default function kapi(options: KapiOptions = {}): Plugin {
   let serverPort: number | null = null
 
   return {
@@ -80,7 +87,7 @@ export default function kapi(): Plugin {
       }
     },
     configureServer() {
-      startServer(KAPI_SERVER_PORT)
+      startServer(KAPI_SERVER_PORT, options)
         .then(port => {
           serverPort = port
         })
@@ -154,7 +161,7 @@ export default function kapi(): Plugin {
     },
     async transformIndexHtml(html: string) {
       if (serverPort === null) {
-        serverPort = await startServer(KAPI_SERVER_PORT)
+        serverPort = await startServer(KAPI_SERVER_PORT, options)
       }
       return {
         html,

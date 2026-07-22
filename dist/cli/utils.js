@@ -3,7 +3,7 @@ import { addVitePlugin, addNuxtModule } from 'magicast/helpers';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 // dist/cli/utils.js -> package root (two levels up from dist/cli/)
 const kapiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const kapiPkg = JSON.parse(readFileSync(path.join(kapiRoot, 'package.json'), 'utf-8'));
@@ -33,7 +33,15 @@ export function detectFramework(cwd) {
         return null;
     }
 }
-export async function injectVitePlugin(cwd) {
+export function isAgentInstalled(agent) {
+    const result = spawnSync(agent, ['--version'], { stdio: 'ignore' });
+    const error = result.error;
+    return error?.code !== 'ENOENT';
+}
+export function detectInstalledAgents() {
+    return ['claude', 'codex'].filter(isAgentInstalled);
+}
+export async function injectVitePlugin(cwd, agent) {
     const configFile = VITE_CONFIG_CANDIDATES.find((f) => existsSync(path.join(cwd, f)));
     if (!configFile) {
         throw new Error('No vite.config found.');
@@ -49,12 +57,13 @@ export async function injectVitePlugin(cwd) {
     addVitePlugin(mod, {
         from: importSpecifier,
         imported: 'default',
-        constructor: 'kapi'
+        constructor: 'kapi',
+        options: { agent },
     });
     await writeFile(mod, configPath);
     console.log(`✔ Added kapi plugin to ${configFile}`);
 }
-export async function injectNuxtModule(cwd) {
+export async function injectNuxtModule(cwd, agent) {
     const configFile = NUXT_CONFIG_CANDIDATES.find((f) => existsSync(path.join(cwd, f)));
     if (!configFile) {
         throw new Error('No nuxt.config found.');
@@ -71,7 +80,7 @@ export async function injectNuxtModule(cwd) {
     // overlay can't be injected as a plain Vite plugin the way it is for Vite
     // apps. Registering it as a Nuxt module (kapi-ui/nuxt) lets it inject the
     // overlay script via unhead and add the Vite plugin through @nuxt/kit.
-    addNuxtModule(mod, moduleSpecifier);
+    addNuxtModule(mod, moduleSpecifier, 'kapi', { agent });
     await writeFile(mod, configPath);
     console.log(`✔ Added kapi module to ${configFile}`);
 }

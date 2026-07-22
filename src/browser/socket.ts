@@ -1,6 +1,7 @@
 let socket: WebSocket | null = null
 let onCommentsDone: (() => void) | null = null
 let onCommentsProcessing: ((status: string) => void) | null = null
+let onCommentsError: ((message: string) => void) | null = null
 
 export function connectSocket(): WebSocket {
   const port = (window as any).__KAPI_PORT__ || 6767
@@ -14,6 +15,7 @@ export function connectSocket(): WebSocket {
       const msg = JSON.parse(e.data)
       if (msg.type === 'comments:done') onCommentsDone?.()
       if (msg.type === 'comments:processing') onCommentsProcessing?.(msg.status)
+      if (msg.type === 'comments:error') onCommentsError?.(msg.message)
     } catch {
       /* ignore malformed messages */
     }
@@ -44,4 +46,8 @@ export function setOnCommentsDone(callback: () => void) {
 
 export function setOnCommentsProcessing(callback: (status: string) => void) {
   onCommentsProcessing = callback
+}
+
+export function setOnCommentsError(callback: (message: string) => void) {
+  onCommentsError = callback
 }
