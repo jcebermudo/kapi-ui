@@ -1,6 +1,6 @@
-import { startInspecting, stopInspecting, setOnHover, setOnElementClick, setDisabled } from './inspector.js';
+import { startInspecting, stopInspecting, setOnHover, setOnElementClick, setOnSelectionChange, setDisabled } from './inspector.js';
 import { updateHoverPanel, showProcessingStatus } from './hover-panel.js';
-import { beginComment, clearAllComments, cancelOpenDraft, buildCommentsPrompt } from './comments.js';
+import { beginComment, updateSelection, clearAllComments, cancelOpenDraft, buildCommentsPrompt } from './comments.js';
 import { connectSocket, sendComments, stopComments, setOnCommentsDone, setOnCommentsError, setOnCommentsProcessing } from './socket.js';
 import { LOGO_SVG, AI_SVG, DELETE_SVG, STOP_SVG } from './icons.js';
 import styles from './overlay.css?inline';
@@ -90,6 +90,9 @@ export function insertOverlay() {
     });
     setOnElementClick((el, clientX, clientY) => {
         beginComment(el, clientX, clientY);
+    });
+    setOnSelectionChange((els) => {
+        updateSelection(els);
     });
     // 4. Track comment-processing state and control the logo button.
     let isProcessing = false;

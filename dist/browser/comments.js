@@ -1,4 +1,4 @@
-import { lockHighlightOn, unlockHighlight, clearHighlightIfNotInspecting, getSourceLocation, getComponentInfo, renderComponentBadge, isDisabled, } from './inspector.js';
+import { lockHighlightOn, unlockHighlight, clearHighlightIfNotInspecting, getSourceLocation, getComponentInfo, renderComponentBadge, isDisabled, clearSelection, isBoxSelectClick, lockWithoutHighlight, previewElements, clearPreview, } from './inspector.js';
 import { ARROW_SVG, DELETE_SVG } from './icons.js';
 import STYLES from './comments.css?inline';
 const TAG = 'kapi-comments';
@@ -38,6 +38,11 @@ function saveToStorage() {
         text: c.text,
         source: c.source,
         component: c.component,
+        targets: c.targets?.map((t) => ({
+            selector: buildUniqueSelector(t.el),
+            source: t.source,
+            component: t.component,
+        })),
     }));
     try {
         localStorage.setItem(storageKey, JSON.stringify(data));
@@ -61,6 +66,15 @@ function loadFromStorage() {
         const el = document.querySelector(item.selector);
         if (!el)
             continue; // page structure changed since this was saved; skip it
+        let targets;
+        if (item.targets) {
+            targets = item.targets.reduce((acc, t) => {
+                const targetEl = document.querySelector(t.selector);
+                if (targetEl)
+                    acc.push({ el: targetEl, source: t.source, component: t.component });
+                return acc;
+            }, []);
+        }
         comments.push({
             id: item.id,
             el,
@@ -69,6 +83,7 @@ function loadFromStorage() {
             text: item.text,
             source: item.source,
             component: item.component,
+            targets,
         });
     }
 }
@@ -112,6 +127,12 @@ function renderMarker(entry) {
     const textEl = document.createElement('div');
     textEl.textContent = entry.text;
     tooltip.appendChild(textEl);
+    if (entry.targets && entry.targets.length > 1) {
+        const countEl = document.createElement('div');
+        countEl.className = 'kapi-comment-tooltip-source';
+        countEl.textContent = `applies to ${entry.targets.length} elements`;
+        tooltip.appendChild(countEl);
+    }
     marker.addEventListener('mouseenter', () => wrapper.classList.add('kapi-hovering'));
     marker.addEventListener('mouseleave', () => wrapper.classList.remove('kapi-hovering'));
     marker.addEventListener('click', () => beginEdit(entry));
@@ -119,12 +140,12 @@ function renderMarker(entry) {
     position(entry, wrapper);
     return wrapper;
 }
-function renderComposer(number, target, initialText = '') {
+function renderComposer(label, target, initialText = '') {
     const wrapper = document.createElement('div');
     wrapper.className = 'kapi-comment';
     const marker = document.createElement('div');
     marker.className = 'kapi-comment-marker kapi-comment-marker-enter';
-    marker.textContent = String(number);
+    marker.textContent = label;
     const composer = document.createElement('div');
     composer.className = 'kapi-comment-composer';
     const input = document.createElement('textarea');
@@ -189,13 +210,14 @@ function render() {
     r.querySelectorAll('.kapi-comment').forEach((n) => n.remove());
     for (const entry of comments) {
         if (draft && draft.id === entry.id) {
-            r.appendChild(renderComposer(entry.id, draft, draft.text));
+            r.appendChild(renderComposer(String(entry.id), draft, draft.text));
             continue;
         }
         r.appendChild(renderMarker(entry));
     }
     if (draft && draft.id === undefined) {
-        r.appendChild(renderComposer(comments.length + 1, draft));
+        const label = draft.els && draft.els.length > 1 ? `${draft.els.length}` : String(comments.length + 1);
+        r.appendChild(renderComposer(label, draft, draft.text));
     }
 }
 function repositionAll() {
@@ -220,6 +242,12 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('click', (e) => {
     if (!draft || !root)
         return;
+    // Let a shift-click, or the trailing click a drag-select release fires,
+    // fall through to the inspector's blocker instead of canceling — those
+    // are how a batch draft's element selection keeps growing while its
+    // composer is open.
+    if (e.shiftKey || isBoxSelectClick())
+        return;
     const target = e.target;
     const kapiHost = root.host;
     if (!kapiHost.contains(target)) {
@@ -236,7 +264,24 @@ function submitDraft(rawText) {
         cancelDraft();
         return;
     }
-    if (draft.id !== undefined) {
+    if (draft.els) {
+        const targets = draft.els.map((el) => ({
+            el,
+            source: getSourceLocation(el),
+            component: getComponentInfo(el),
+        }));
+        comments.push({
+            id: comments.length + 1,
+            el: draft.el,
+            ratioX: 0.5,
+            ratioY: 0.5,
+            text,
+            source: targets[0]?.source ?? null,
+            component: targets[0]?.component ?? null,
+            targets,
+        });
+    }
+    else if (draft.id !== undefined) {
         const entry = comments.find((c) => c.id === draft.id);
         if (entry)
             entry.text = text;
@@ -254,12 +299,16 @@ function submitDraft(rawText) {
     }
     draft = null;
     unlockHighlight();
+    clearSelection();
+    clearPreview();
     saveToStorage();
     render();
 }
 function cancelDraft() {
     draft = null;
     unlockHighlight();
+    clearSelection();
+    clearPreview();
     render();
 }
 export function cancelOpenDraft() {
@@ -269,10 +318,16 @@ export function cancelOpenDraft() {
 export function buildCommentsPrompt() {
     if (comments.length === 0)
         return null;
+    const describe = (el, source, component) => {
+        const location = source ? `${source.file}:${source.line}:${source.column}` : buildUniqueSelector(el);
+        const componentTag = component ? `<${component.name}> ` : '';
+        return `${componentTag}${location}`;
+    };
     const lines = comments.map((c) => {
-        const location = c.source ? `${c.source.file}:${c.source.line}:${c.source.column}` : buildUniqueSelector(c.el);
-        const component = c.component ? `<${c.component.name}> ` : '';
-        return `${c.id}. [${component}${location}] feedback: ${c.text}`;
+        const locations = c.targets?.length
+            ? c.targets.map((t) => describe(t.el, t.source, t.component)).join(', ')
+            : describe(c.el, c.source, c.component);
+        return `${c.id}. [${locations}] feedback: ${c.text}`;
     });
     return [
         'Address each of the following review comments left on specific elements in this app:',
@@ -285,6 +340,7 @@ export function clearAllComments() {
     if (draft) {
         draft = null;
         unlockHighlight();
+        clearPreview();
     }
     try {
         localStorage.removeItem(storageKey);
@@ -304,10 +360,42 @@ export function beginComment(el, clientX, clientY) {
     lockHighlightOn(el);
     render();
 }
+// Called on every shift-click/drag-select change in inspector.ts. Keeps one
+// shared composer live as the selection grows or shrinks, so no separate
+// "commit" click is needed. On submit, one CommentEntry per selected element
+// is created with the same text.
+export function updateSelection(els) {
+    if (isDisabled())
+        return;
+    if (els.length === 0) {
+        if (draft?.els)
+            cancelDraft();
+        return;
+    }
+    // A normal single comment/edit is already in progress (reachable if a
+    // shift-click lands while editing an existing comment) — leave it alone.
+    if (draft && !draft.els)
+        return;
+    const anchor = els[els.length - 1];
+    if (draft?.els) {
+        // Preserve whatever the user has typed so far across the re-render.
+        const input = root?.querySelector('.kapi-comment-input');
+        if (input)
+            draft.text = input.value;
+        draft.els = els;
+        draft.el = anchor;
+    }
+    else {
+        draft = { el: anchor, ratioX: 0.5, ratioY: 0.5, els };
+    }
+    lockWithoutHighlight();
+    render();
+}
 function deleteComment(id) {
     comments = comments.filter((c) => c.id !== id);
     draft = null;
     unlockHighlight();
+    clearPreview();
     saveToStorage();
     render();
 }
@@ -317,7 +405,13 @@ function beginEdit(entry) {
     if (draft)
         cancelDraft();
     draft = { el: entry.el, ratioX: entry.ratioX, ratioY: entry.ratioY, id: entry.id, text: entry.text };
-    lockHighlightOn(entry.el);
+    if (entry.targets && entry.targets.length > 1) {
+        previewElements(entry.targets.map((t) => t.el));
+        lockWithoutHighlight();
+    }
+    else {
+        lockHighlightOn(entry.el);
+    }
     render();
 }
 // In an SPA, client-side navigation (Vue Router, etc.) changes

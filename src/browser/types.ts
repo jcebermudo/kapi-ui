@@ -40,6 +40,13 @@ export interface ElementLocation {
   component: ComponentInfo | null
 }
 
+/** One element a consolidated multi-select comment applies to. */
+export interface CommentTarget {
+  el: Element
+  source: SourceLocation | null
+  component: ComponentInfo | null
+}
+
 /** A submitted comment held in memory, anchored to a live element. */
 export interface CommentEntry {
   id: number
@@ -49,6 +56,10 @@ export interface CommentEntry {
   text: string
   source: SourceLocation | null
   component: ComponentInfo | null
+  // Present only for a comment created from a multi-select batch: every
+  // element it applies to (including `el`, the anchor used for marker
+  // position). Absent for an ordinary single-element comment.
+  targets?: CommentTarget[]
 }
 
 /** An in-progress comment being composed or edited. */
@@ -59,6 +70,10 @@ export interface Draft {
   // Set when editing an existing comment rather than creating a new one.
   id?: number
   text?: string
+  // Set when composing one comment across a multi-selected batch of elements
+  // (see inspector.ts's shift-click/drag-select). `el`/ratioX/ratioY above
+  // just anchor the composer's on-screen position to the first selected element.
+  els?: Element[]
 }
 
 /** A comment serialized for localStorage (element referenced by selector). */
@@ -70,6 +85,7 @@ export interface StoredComment {
   text: string
   source: SourceLocation | null
   component: ComponentInfo | null
+  targets?: { selector: string; source: SourceLocation | null; component: ComponentInfo | null }[]
 }
 
 /** The overlay bar's persisted screen position. */

@@ -1,6 +1,9 @@
 import { findTraceFromElement } from './trace-record.js';
 const HIGHLIGHT_COLOR = '34, 197, 94'; // green-500, as an rgb triplet for reuse in rgba()
+const SELECTION_COLOR = '59, 130, 246'; // blue-500, for multi-select outlines/marquee
 const IGNORE_SELECTOR = 'kapi-overlay, kapi-hover-panel, kapi-comments';
+const DRAG_THRESHOLD = 4;
+const BOX_SELECT_STEP = 16; // px between elementsFromPoint samples inside a drag box
 let highlightEl = null;
 let blockerEl = null;
 let hoveredEl = null;
@@ -9,6 +12,157 @@ let locked = false;
 let disabled = false;
 let onHover = null;
 let onElementClick = null;
+// Multi-select state: shift-click toggles individual elements, drag draws a
+// marquee and adds every element sampled inside it. Both feed the same Set;
+// every change is pushed out immediately so the caller can keep a composer
+// live while the selection grows. A plain click clears it.
+const selected = new Set();
+let onSelectionChange = null;
+// Blue outline boxes, shared by two callers: the live selection above, and
+// beginEdit() in comments.ts previewing an existing multi-target comment's
+// elements. Whichever last wrote `outlineTargets` wins the paint.
+let outlineTargets = [];
+let selectionOutlineEls = [];
+let marqueeEl = null;
+let boxDragStart = null;
+let boxDragging = false;
+let justBoxSelected = false; // swallows the click that follows a drag-release
+function ensureMarqueeEl() {
+    if (marqueeEl)
+        return marqueeEl;
+    const el = document.createElement('div');
+    el.style.cssText = `
+    position: fixed;
+    pointer-events: none;
+    box-sizing: border-box;
+    background: rgba(${SELECTION_COLOR}, 0.1);
+    border: 1px dashed rgb(${SELECTION_COLOR});
+    z-index: 2147483646;
+    display: none;
+  `;
+    document.body.appendChild(el);
+    marqueeEl = el;
+    return el;
+}
+function paintMarquee(x1, y1, x2, y2) {
+    const box = ensureMarqueeEl();
+    box.style.display = 'block';
+    box.style.left = `${Math.min(x1, x2)}px`;
+    box.style.top = `${Math.min(y1, y2)}px`;
+    box.style.width = `${Math.abs(x2 - x1)}px`;
+    box.style.height = `${Math.abs(y2 - y1)}px`;
+}
+function hideMarquee() {
+    if (marqueeEl)
+        marqueeEl.style.display = 'none';
+}
+function paintOutlines() {
+    selectionOutlineEls.forEach((el) => el.remove());
+    selectionOutlineEls = outlineTargets.map((el) => {
+        const box = document.createElement('div');
+        const rect = el.getBoundingClientRect();
+        box.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      box-sizing: border-box;
+      background: rgba(${SELECTION_COLOR}, 0.15);
+      border: 1px solid rgb(${SELECTION_COLOR});
+      z-index: 2147483646;
+      transform: translate(${rect.left}px, ${rect.top}px);
+      width: ${rect.width}px;
+      height: ${rect.height}px;
+    `;
+        document.body.appendChild(box);
+        return box;
+    });
+}
+function repositionOutlines() {
+    if (outlineTargets.length > 0)
+        paintOutlines();
+}
+window.addEventListener('resize', repositionOutlines);
+window.addEventListener('scroll', repositionOutlines, true);
+export function setOnSelectionChange(callback) {
+    onSelectionChange = callback;
+}
+function notifySelectionChange() {
+    outlineTargets = [...selected];
+    paintOutlines();
+    onSelectionChange?.([...selected]);
+}
+// Shows blue outlines on an arbitrary set of elements without touching the
+// interactive `selected` Set above — used to preview an existing multi-target
+// comment's elements while it's being edited.
+export function previewElements(els) {
+    outlineTargets = els;
+    paintOutlines();
+}
+export function clearPreview() {
+    outlineTargets = [];
+    paintOutlines();
+}
+function toggleSelected(el) {
+    selected.has(el) ? selected.delete(el) : selected.add(el);
+    notifySelectionChange();
+}
+export function clearSelection() {
+    if (selected.size === 0)
+        return;
+    selected.clear();
+    notifySelectionChange();
+}
+function selectElementsInBox(x1, y1, x2, y2, additive) {
+    const left = Math.min(x1, x2);
+    const right = Math.max(x1, x2);
+    const top = Math.min(y1, y2);
+    const bottom = Math.max(y1, y2);
+    if (!additive)
+        selected.clear();
+    for (let y = top; y <= bottom; y += BOX_SELECT_STEP) {
+        for (let x = left; x <= right; x += BOX_SELECT_STEP) {
+            const stack = document.elementsFromPoint(x, y);
+            if (stack[0]?.closest(IGNORE_SELECTOR))
+                continue;
+            const el = stack.find(isInspectable);
+            if (el)
+                selected.add(el);
+        }
+    }
+    notifySelectionChange();
+}
+function handleBlockerPointerDown(e) {
+    if (e.button !== 0)
+        return;
+    boxDragStart = { x: e.clientX, y: e.clientY };
+    boxDragging = false;
+    blockerEl?.setPointerCapture(e.pointerId);
+}
+function handleBlockerPointerMove(e) {
+    if (!boxDragStart)
+        return;
+    const dx = e.clientX - boxDragStart.x;
+    const dy = e.clientY - boxDragStart.y;
+    if (!boxDragging) {
+        if (Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD)
+            return;
+        boxDragging = true;
+        clearHighlight(); // hide the hover box so it doesn't fight the marquee
+    }
+    paintMarquee(boxDragStart.x, boxDragStart.y, e.clientX, e.clientY);
+}
+function handleBlockerPointerUp(e) {
+    if (!boxDragStart)
+        return;
+    if (boxDragging) {
+        selectElementsInBox(boxDragStart.x, boxDragStart.y, e.clientX, e.clientY, e.shiftKey);
+        hideMarquee();
+        justBoxSelected = true;
+    }
+    boxDragStart = null;
+    boxDragging = false;
+}
 function ensureHighlightEl() {
     if (highlightEl)
         return highlightEl;
@@ -30,13 +184,28 @@ function ensureHighlightEl() {
     return el;
 }
 function handleBlockerClick(e) {
+    if (justBoxSelected) {
+        justBoxSelected = false;
+        return; // this click is the tail end of a drag-select release, not a real click
+    }
     const stack = document.elementsFromPoint(e.clientX, e.clientY);
     if (stack[0]?.closest(IGNORE_SELECTOR))
         return;
     const el = stack.find(isInspectable) ?? null;
     if (!el)
         return;
+    if (e.shiftKey) {
+        toggleSelected(el);
+        return;
+    }
+    if (selected.size > 0) {
+        clearSelection();
+        return;
+    }
     onElementClick?.(el, e.clientX, e.clientY);
+}
+export function isBoxSelectClick() {
+    return justBoxSelected;
 }
 function ensureBlockerEl() {
     if (blockerEl)
@@ -51,6 +220,9 @@ function ensureBlockerEl() {
     display: none;
   `;
     el.addEventListener('click', handleBlockerClick);
+    el.addEventListener('pointerdown', handleBlockerPointerDown);
+    el.addEventListener('pointermove', handleBlockerPointerMove);
+    el.addEventListener('pointerup', handleBlockerPointerUp);
     document.body.appendChild(el);
     blockerEl = el;
     return el;
@@ -153,7 +325,7 @@ function clearHighlight() {
     onHover?.(null);
 }
 function handlePointerMove(e) {
-    if (locked)
+    if (locked || boxDragging)
         return;
     const stack = document.elementsFromPoint(e.clientX, e.clientY);
     // The overlay/hover-panel/comments UI sits above the blocker in z-index, so
@@ -184,6 +356,14 @@ export function lockHighlightOn(el) {
     paintHighlight(el);
     onHover?.(null);
 }
+// Freezes hover (like lockHighlightOn) but skips the single green highlight
+// box — used while composing on a multi-select batch, where the blue
+// selection outlines (see notifySelectionChange) already mark every element
+// and a green box on just the anchor would visually clash with them.
+export function lockWithoutHighlight() {
+    locked = true;
+    clearHighlight();
+}
 export function unlockHighlight() {
     locked = false;
 }
@@ -203,6 +383,7 @@ export function stopInspecting() {
     active = false;
     document.removeEventListener('pointermove', handlePointerMove, true);
     clearHighlight();
+    clearSelection();
     if (blockerEl)
         blockerEl.style.display = 'none';
 }
