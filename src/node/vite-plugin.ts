@@ -5,15 +5,11 @@ import { searchForWorkspaceRoot } from 'vite'
 import { walk } from 'estree-walker'
 import MagicString from 'magic-string'
 import { SourceMapConsumer } from 'source-map-js'
-import { startServer, type KapiAgent } from './server.js'
+import { startServer } from './server.js'
 import { KAPI_SERVER_PORT } from '../constants.js'
+import type { KapiOptions } from './types.js'
 
-export type { KapiAgent } from './server.js'
-
-export interface KapiOptions {
-  /** CLI agent used to process comments. Defaults to Claude Code. */
-  agent?: KapiAgent
-}
+export type { KapiOptions, KapiAgent } from './types.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const overlayPath = path.resolve(__dirname, '../browser/overlay.js')

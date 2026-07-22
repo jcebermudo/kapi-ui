@@ -1,24 +1,7 @@
 import http from 'http'
 import { spawn, type ChildProcess } from 'child_process'
 import { WebSocketServer, WebSocket } from 'ws'
-
-export type KapiAgent = 'claude' | 'codex'
-
-export interface KapiServerOptions {
-  agent?: KapiAgent
-}
-
-interface AgentSession {
-  agent: KapiAgent
-  id: string
-}
-
-interface AgentProvider {
-  startSession(cwd: string, prompt: string): ChildProcess
-  resumeSession(session: AgentSession, prompt: string): ChildProcess
-  sessionIdFromEvent(event: unknown): string | null
-  describeEvent(event: unknown): string | null
-}
+import type { KapiAgent, KapiServerOptions, AgentSession, AgentProvider } from './types.js'
 
 let session: AgentSession | null = null
 let portPromise: Promise<number> | null = null

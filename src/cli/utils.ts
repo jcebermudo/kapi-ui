@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { execSync, spawnSync } from 'child_process'
+import type { Framework, CodingAgent } from './types.js'
 
 // dist/cli/utils.js -> package root (two levels up from dist/cli/)
 const kapiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -14,9 +15,6 @@ export function installKapi(cwd: string) {
   console.log(`Installing ${KAPI_PACKAGE_NAME}...`)
   execSync(`npm install ${KAPI_PACKAGE_NAME} -D`, { cwd, stdio: 'inherit' })
 }
-
-export type Framework = 'vite' | 'nuxt'
-export type CodingAgent = 'claude' | 'codex'
 
 export const NUXT_CONFIG_CANDIDATES = ['nuxt.config.ts', 'nuxt.config.js', 'nuxt.config.mjs', 'nuxt.config.mts', 'nuxt.config.cjs']
 export const VITE_CONFIG_CANDIDATES = ['vite.config.ts', 'vite.config.js', 'vite.config.mjs', 'vite.config.mts', 'vite.config.cjs']

@@ -1,4 +1,4 @@
-import type { SourceLocation } from './trace-record.js'
+import type { SourceLocation, ComponentInfo, VueComponentInstance, ElementLocation } from './types.js'
 import { findTraceFromElement } from './trace-record.js'
 
 const HIGHLIGHT_COLOR = '34, 197, 94' // green-500, as an rgb triplet for reuse in rgba()
@@ -82,8 +82,6 @@ function buildSelectorPath(el: Element): string {
   return parts.join(' > ') || el.tagName.toLowerCase()
 }
 
-export type { SourceLocation }
-
 // Most elements resolve directly via `el.__vnode` (see trace-record.ts). The
 // ancestor walk below exists for the elements that can't: plain text nodes
 // (no vnode at all), `_createStaticVNode` content (raw innerHTML — Vue never
@@ -101,20 +99,6 @@ export function getSourceLocation(el: Element): SourceLocation | null {
     node = node.parentElement
   }
   return null
-}
-
-export interface ComponentInfo {
-  name: string
-  file: string | null
-}
-
-// Vue's renderer stamps every DOM node it creates with a non-enumerable
-// `__vueParentComponent` pointing at the component instance whose render()
-// produced it, so this reads straight off the element instead of walking the
-// DOM for a compile-time attribute. `type.__file` is populated by
-// @vitejs/plugin-vue in dev builds for devtools, at no extra cost to us.
-interface VueComponentInstance {
-  type: { name?: string; __name?: string; __file?: string }
 }
 
 let warnedMissingComponentInfo = false
@@ -153,15 +137,6 @@ export function renderComponentBadge(component: ComponentInfo, className: string
   el.className = className
   el.textContent = `<${component.name}>`
   return el
-}
-
-export interface ElementLocation {
-  tag: string
-  id: string | null
-  classes: string[]
-  selector: string
-  source: SourceLocation | null
-  component: ComponentInfo | null
 }
 
 export function describeElement(el: Element): ElementLocation {

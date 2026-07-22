@@ -4,6 +4,7 @@ import { beginComment, clearAllComments, cancelOpenDraft, buildCommentsPrompt } 
 import { connectSocket, sendComments, stopComments, setOnCommentsDone, setOnCommentsError, setOnCommentsProcessing } from './socket.js'
 import { LOGO_SVG, AI_SVG, DELETE_SVG, STOP_SVG } from './icons.js'
 import styles from './overlay.css?inline'
+import type { Position } from './types.js'
 
 const KAPI_TAG = 'kapi-overlay'
 const POSITION_KEY = 'kapi-overlay-position'
@@ -11,12 +12,6 @@ const DRAG_THRESHOLD = 4
 const COLLAPSED_WIDTH = 40
 const BAR_HEIGHT = 40
 const INSET = 20
-
-// Persist the overlay's screen position between page loads.
-interface Position {
-  left: number
-  top: number
-}
 
 function loadPosition(): Position | null {
   try {

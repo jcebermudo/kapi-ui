@@ -1,4 +1,5 @@
-import { renderComponentBadge, type ElementLocation } from './inspector.js'
+import { renderComponentBadge } from './inspector.js'
+import type { ElementLocation } from './types.js'
 
 const PANEL_TAG = 'kapi-hover-panel'
 

@@ -1,13 +1,4 @@
-export interface SourceLocation {
-  file: string
-  line: number
-  column: number
-}
-
-interface VNodeLike {
-  __v_isVNode?: boolean
-  props?: Record<string, unknown> | null
-}
+import type { SourceLocation, VNodeLike } from './types.js'
 
 // Vue re-creates vnode objects on every re-render, but a given template
 // position's `props` object is a stable identity for that call site within a

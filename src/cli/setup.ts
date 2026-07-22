@@ -8,9 +8,8 @@ import {
   detectFramework,
   detectInstalledAgents,
   KAPI_PACKAGE_NAME,
-  type CodingAgent,
-  type Framework,
 } from './utils.js'
+import type { CodingAgent, Framework } from './types.js'
 
 const FRAMEWORK_SETUP: Record<
   Framework,

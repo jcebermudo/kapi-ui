@@ -6,45 +6,15 @@ import {
   getComponentInfo,
   renderComponentBadge,
   isDisabled,
-  type SourceLocation,
-  type ComponentInfo,
 } from './inspector.js'
 import { ARROW_SVG, DELETE_SVG } from './icons.js'
+import type { CommentEntry, Draft, StoredComment } from './types.js'
 import STYLES from './comments.css?inline'
 
 const TAG = 'kapi-comments'
 const STORAGE_KEY = `kapi-comments:${location.pathname}`
 const MARKER_SIZE = 22
 const MARKER_RADIUS = MARKER_SIZE / 2
-
-interface CommentEntry {
-  id: number
-  el: Element
-  ratioX: number
-  ratioY: number
-  text: string
-  source: SourceLocation | null
-  component: ComponentInfo | null
-}
-
-interface Draft {
-  el: Element
-  ratioX: number
-  ratioY: number
-  // Set when editing an existing comment rather than creating a new one.
-  id?: number
-  text?: string
-}
-
-interface StoredComment {
-  id: number
-  selector: string
-  ratioX: number
-  ratioY: number
-  text: string
-  source: SourceLocation | null
-  component: ComponentInfo | null
-}
 
 let root: ShadowRoot | null = null
 let comments: CommentEntry[] = []
