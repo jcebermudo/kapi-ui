@@ -26,6 +26,7 @@ const VNODE_FUNCTIONS = [
   '_createStaticVNode',
 ]
 const vnodeCallRe = new RegExp(`\\b(?:${VNODE_FUNCTIONS.join('|')})\\(`)
+const INSTRUMENTED_MARKER = '/* kapi-ui:instrumented */'
 
 // Byte offset of the start of each line (line 1 starts at offset 0). Built
 // once per file so looking up a call's line/column is a binary search
@@ -47,6 +48,16 @@ function offsetToPos(lineOffsets: number[], index: number): { line: number; colu
     else hi = mid - 1
   }
   return { line: lo + 1, column: index - lineOffsets[lo]! }
+}
+
+function createUniqueIdentifier(base: string, identifiers: Set<string>): string {
+  let identifier = base
+  let suffix = 1
+  while (identifiers.has(identifier)) {
+    identifier = `${base}_${suffix++}`
+  }
+  identifiers.add(identifier)
+  return identifier
 }
 
 export default function kapi(): Plugin {
@@ -94,14 +105,27 @@ export default function kapi(): Plugin {
       // before parsing every transformed module in the project.
       if (!code.includes('_sfc_render(')) return
       if (!vnodeCallRe.test(code)) return
-      if (code.includes('__kapiTracer(')) return
+      if (code.includes(INSTRUMENTED_MARKER)) return
 
       const map = this.getCombinedSourcemap()
       const consumer = new SourceMapConsumer(map as unknown as ConstructorParameters<typeof SourceMapConsumer>[0])
       const s = new MagicString(code)
       const ast = this.parse(code)
       const lineOffsets = buildLineOffsets(code)
+      const identifiers = new Set<string>()
       let hit = false
+
+      walk(ast, {
+        enter(node) {
+          if (node.type === 'Identifier') identifiers.add(node.name)
+        },
+      })
+
+      // Vue's compiled render function shares the module's lexical scope, so
+      // reserve names not used anywhere in the parsed module before injecting
+      // either the import binding or the tracer helper.
+      const recordPositionIdentifier = createUniqueIdentifier('__kapiRecordPosition', identifiers)
+      const tracerIdentifier = createUniqueIdentifier('__kapiTracer', identifiers)
 
       walk(ast, {
         enter(node) {
@@ -113,7 +137,7 @@ export default function kapi(): Plugin {
           if (original.source === null) return
 
           hit = true
-          s.appendLeft(start, `__kapiTracer(${original.line},${original.column},`)
+          s.appendLeft(start, `${tracerIdentifier}(${original.line},${original.column},`)
           s.appendRight(end, ')')
         },
       })
@@ -121,9 +145,9 @@ export default function kapi(): Plugin {
       if (!hit) return
 
       const relativeFile = path.relative(process.cwd(), id.split('?')[0]!)
-      s.prepend(`import { recordPosition as __kapiRecordPosition } from "/@kapi-ui/trace-record"\n`)
+      s.prepend(`${INSTRUMENTED_MARKER}\nimport { recordPosition as ${recordPositionIdentifier} } from "/@kapi-ui/trace-record"\n`)
       s.append(
-        `\nfunction __kapiTracer(line, column, vnode) { return __kapiRecordPosition(${JSON.stringify(relativeFile)}, line, column, vnode) }\n`,
+        `\nfunction ${tracerIdentifier}(line, column, vnode) { return ${recordPositionIdentifier}(${JSON.stringify(relativeFile)}, line, column, vnode) }\n`,
       )
 
       return { code: s.toString(), map: s.generateMap({ hires: true }) }
