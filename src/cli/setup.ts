@@ -43,7 +43,7 @@ Add this manually to your vite.config:
 
 const AGENT_LABELS: Record<CodingAgent, string> = {
   claude: 'Claude Code',
-  codex: 'Codex',
+  codex: 'Codex (experimental)',
 }
 
 interface SelectOption<T> {
@@ -181,7 +181,7 @@ async function setup() {
   }
 
   const { label, inject, manualInstructions } = FRAMEWORK_SETUP[framework]
-  console.log(`\n✨ Detected ${label}; using ${agent === 'claude' ? 'Claude Code' : 'Codex'} — setting up kapi...\n`)
+  console.log(`\n✨ Detected ${label}; using ${AGENT_LABELS[agent]} — setting up kapi...\n`)
 
   try {
     installKapi(cwd)

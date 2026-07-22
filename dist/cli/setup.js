@@ -30,7 +30,7 @@ Add this manually to your vite.config:
 };
 const AGENT_LABELS = {
     claude: 'Claude Code',
-    codex: 'Codex',
+    codex: 'Codex (experimental)',
 };
 // Minimal dependency-free single-select list: renders bulleted options and
 // lets the user move with ↑/↓ (or j/k) and confirm with Enter, redrawing the
@@ -152,7 +152,7 @@ async function setup() {
         process.exit(1);
     }
     const { label, inject, manualInstructions } = FRAMEWORK_SETUP[framework];
-    console.log(`\n✨ Detected ${label}; using ${agent === 'claude' ? 'Claude Code' : 'Codex'} — setting up kapi...\n`);
+    console.log(`\n✨ Detected ${label}; using ${AGENT_LABELS[agent]} — setting up kapi...\n`);
     try {
         installKapi(cwd);
         await inject(cwd, agent);
