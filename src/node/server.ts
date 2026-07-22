@@ -109,32 +109,24 @@ function findAvailablePort(startPort: number): Promise<number> {
 // tool-use context, and the prompt cache all stay warm between submissions.
 
 const KAPI_SESSION_PROMPT =
-  "You're applying UI edits from visual comments. Each comment gives the exact file:line:col — go straight there, don't search for it. Make only the requested edit. Stay terse: no narration between tool calls, and finish with at most one short sentence."
+  "You're applying UI edits from visual comments. Each comment gives the exact file:line:col — go straight there, don't search for it. Make only the requested edit. " +
+  "Before finishing, check whether a higher-precedence rule on the same element would override the property you just changed — an inline `style` attribute, `!important`, a more specific selector, or a utility class applied after it. You have no way to see the rendered result, so if such a conflict exists, edit the highest-precedence source instead of (or in addition to) the one you found first, so the change actually takes visible effect. " +
+  "Stay terse: no narration between tool calls, and finish with at most one short sentence."
 
 let sessionId: string | null = null
 let claudeProc: ChildProcess | null = null
-// Which socket's turn is currently running on the persistent process.
+let busy = false // a turn is currently running on the process
+// Which socket to notify when the running turn finishes. Null for the
+// startup turn that sends KAPI_SESSION_PROMPT — there's no socket yet.
 let activeSocket: WebSocket | null = null
-// FIFO queue of submissions waiting for the persistent process to free up.
-const pendingPrompts: Array<{ prompt: string; socket: WebSocket }> = []
+// FIFO queue of turns waiting for the process to free up. The very first
+// entry, queued at server startup, is the KAPI_SESSION_PROMPT itself.
+const pendingPrompts: Array<{ prompt: string; socket: WebSocket | null }> = []
 
 function ensureClaudeProc(): ChildProcess | null {
   if (claudeProc && claudeProc.exitCode === null) return claudeProc
 
-  const args = [
-    '-p',
-    '--input-format',
-    'stream-json',
-    '--output-format',
-    'stream-json',
-    '--verbose',
-    '--permission-mode',
-    'acceptEdits',
-    '--allowedTools',
-    'Read,Edit,Write',
-    '--append-system-prompt',
-    KAPI_SESSION_PROMPT,
-  ]
+  const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--permission-mode', 'acceptEdits', '--allowedTools', 'Read,Edit,Write']
   if (sessionId) args.push('--resume', sessionId)
 
   let claude: ChildProcess
@@ -169,8 +161,11 @@ function ensureClaudeProc(): ChildProcess | null {
       }
 
       if (event.type === 'result') {
-        // Turn finished — notify the submitter and start the next queued batch.
-        finishActiveTurn()
+        // Turn finished — notify the submitter (if any) and start the next queued turn.
+        busy = false
+        if (activeSocket) send(activeSocket, { type: 'comments:done' })
+        activeSocket = null
+        processQueue()
         continue
       }
 
@@ -190,25 +185,17 @@ function ensureClaudeProc(): ChildProcess | null {
   })
   claude.on('close', () => {
     if (claudeProc === claude) claudeProc = null
-    // A queued batch (or the killed-and-stopped one's successor) respawns
+    // A queued turn (or the killed-and-stopped one's successor) respawns
     // the process, resuming the same session via --resume.
-    finishActiveTurn()
+    busy = false
+    processQueue()
   })
 
-  console.log(`[kapi] claude process started${sessionId ? ` (resuming ${sessionId})` : ''}`)
   return claude
 }
 
-function finishActiveTurn() {
-  if (activeSocket) {
-    send(activeSocket, { type: 'comments:done' })
-    activeSocket = null
-  }
-  processQueue()
-}
-
 function processQueue() {
-  if (activeSocket || pendingPrompts.length === 0) return
+  if (busy || pendingPrompts.length === 0) return
 
   const claude = ensureClaudeProc()
   if (!claude || !claude.stdin) {
@@ -216,13 +203,14 @@ function processQueue() {
     // Nothing will retry this later, so drain the whole backlog now rather
     // than stranding everything behind the first failed prompt.
     const stranded = pendingPrompts.splice(0, pendingPrompts.length)
-    for (const { socket } of stranded) send(socket, { type: 'comments:done' })
+    for (const { socket } of stranded) if (socket) send(socket, { type: 'comments:done' })
     return
   }
 
   const next = pendingPrompts.shift()!
+  busy = true
   activeSocket = next.socket
-  send(next.socket, { type: 'comments:processing', status: 'Starting...' })
+  if (next.socket) send(next.socket, { type: 'comments:processing', status: 'Starting...' })
   try {
     claude.stdin.write(
       JSON.stringify({
@@ -232,11 +220,13 @@ function processQueue() {
     )
   } catch (err) {
     console.error('[kapi] failed to write prompt to claude stdin:', err)
-    finishActiveTurn()
+    busy = false
+    activeSocket = null
+    processQueue()
   }
 }
 
-function processClaudeComments(prompt: string, socket: WebSocket) {
+function processClaudeComments(prompt: string, socket: WebSocket | null) {
   pendingPrompts.push({ prompt, socket })
   processQueue()
 }
@@ -249,8 +239,8 @@ function stopComments(socket: WebSocket) {
   if (activeSocket === socket && claudeProc) {
     console.log('[kapi] stopping claude process')
     claudeProc.kill()
-    // close handler sends comments:done, clears activeSocket, and the next
-    // submission respawns with --resume so the session continues.
+    // close handler respawns the process (resuming the session) so the next
+    // queued turn — from any tab — continues normally.
   }
 }
 // -----------------------------------------------------------------------------
@@ -362,8 +352,9 @@ export function startServer(portNumber: number, options: KapiServerOptions = {})
       })
     })
 
-    // Warm the Claude process at startup so the first comment is fast too.
-    if (agent === 'claude') ensureClaudeProc()
+    // Start a Claude session at server startup, sending the kapi instructions
+    // as its first turn (see KAPI_SESSION_PROMPT).
+    if (agent === 'claude') processClaudeComments(KAPI_SESSION_PROMPT, null)
 
     return actualPort
   })()
