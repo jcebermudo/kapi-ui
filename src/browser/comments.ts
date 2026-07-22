@@ -12,9 +12,15 @@ import type { CommentEntry, Draft, StoredComment } from './types.js'
 import STYLES from './comments.css?inline'
 
 const TAG = 'kapi-comments'
-const STORAGE_KEY = `kapi-comments:${location.pathname}`
 const MARKER_SIZE = 22
 const MARKER_RADIUS = MARKER_SIZE / 2
+
+// Storage key and in-memory comments are scoped to the current page. In an
+// SPA, navigating via the router doesn't reload this script, so both are
+// re-derived from `location.pathname` on every navigation (see
+// watchForNavigation below) rather than fixed once at module load.
+let storageKey = `kapi-comments:${location.pathname}`
+let currentPathname = location.pathname
 
 let root: ShadowRoot | null = null
 let comments: CommentEntry[] = []
@@ -50,7 +56,7 @@ function saveToStorage() {
     component: c.component,
   }))
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    localStorage.setItem(storageKey, JSON.stringify(data))
   } catch {
     /* ignore (storage disabled/full) */
   }
@@ -59,7 +65,7 @@ function saveToStorage() {
 function loadFromStorage() {
   let data: StoredComment[]
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(storageKey)
     if (!raw) return
     data = JSON.parse(raw)
   } catch {
@@ -334,7 +340,7 @@ export function clearAllComments() {
     unlockHighlight()
   }
   try {
-    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(storageKey)
   } catch {
     /* ignore (storage disabled) */
   }
@@ -371,5 +377,43 @@ function beginEdit(entry: CommentEntry) {
   render()
 }
 
+// In an SPA, client-side navigation (Vue Router, etc.) changes
+// location.pathname without reloading this script. Patch history's
+// navigation methods and listen for back/forward/hash changes so comments
+// stay scoped to whichever page is actually showing.
+function handleNavigation() {
+  if (location.pathname === currentPathname) return
+  currentPathname = location.pathname
+  storageKey = `kapi-comments:${currentPathname}`
+
+  if (draft) cancelDraft()
+  comments = []
+
+  // Vue Router updates the DOM asynchronously after pushState/popstate fires,
+  // so querying for saved selectors must wait a frame for the new page to render.
+  requestAnimationFrame(() => {
+    loadFromStorage()
+    render()
+  })
+}
+
+function watchForNavigation() {
+  const originalPushState = history.pushState.bind(history)
+  history.pushState = function (...args: Parameters<typeof history.pushState>) {
+    originalPushState(...args)
+    handleNavigation()
+  }
+
+  const originalReplaceState = history.replaceState.bind(history)
+  history.replaceState = function (...args: Parameters<typeof history.replaceState>) {
+    originalReplaceState(...args)
+    handleNavigation()
+  }
+
+  window.addEventListener('popstate', handleNavigation)
+  window.addEventListener('hashchange', handleNavigation)
+}
+
+watchForNavigation()
 loadFromStorage()
 render()

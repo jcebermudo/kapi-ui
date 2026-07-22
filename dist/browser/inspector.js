@@ -182,7 +182,7 @@ export function lockHighlightOn(el) {
     locked = true;
     hoveredEl = el;
     paintHighlight(el);
-    onHover?.(el);
+    onHover?.(null);
 }
 export function unlockHighlight() {
     locked = false;

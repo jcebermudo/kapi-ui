@@ -39,6 +39,7 @@ function handleBlockerClick(e: MouseEvent) {
   if (stack[0]?.closest(IGNORE_SELECTOR)) return
   const el = stack.find(isInspectable) ?? null
   if (!el) return
+
   onElementClick?.(el, e.clientX, e.clientY)
 }
 
@@ -198,7 +199,7 @@ export function lockHighlightOn(el: Element) {
   locked = true
   hoveredEl = el
   paintHighlight(el)
-  onHover?.(el)
+  onHover?.(null)
 }
 
 export function unlockHighlight() {
