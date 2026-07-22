@@ -1,20 +1,26 @@
-import { renderComponentBadge } from './inspector.js'
-import type { ElementLocation } from './types.js'
+import { renderComponentBadge, describeElement } from './inspector.js'
 
 const PANEL_TAG = 'kapi-hover-panel'
+const GAP = 6 // px between the hovered element and the panel
+const VIEWPORT_MARGIN = 12
+const CORNER_OFFSET = 20 // fallback position (no anchor element) — top-right corner
 
 const STYLES = `
   :host {
     all: initial;
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 2147483647;
     color-scheme: dark;
+    /* Purely informational — never intercept hits, so elementsFromPoint()
+       in inspector.ts sees straight through to the element under the cursor
+       even when the panel is positioned right on top of it. */
+    pointer-events: none;
   }
 
   .kapi-hover-panel {
     display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2147483647;
     max-width: 360px;
     box-sizing: border-box;
     padding: 8px 12px;
@@ -29,6 +35,10 @@ const STYLES = `
     line-height: 1.5;
     color: rgba(255, 255, 255, 0.75);
     word-break: break-word;
+    /* Slides to the new position when hover moves between elements. Has no
+       effect on first appearance — the panel goes straight from display:none
+       to its initial position, with no prior rendered frame to animate from. */
+    transition: transform 120ms ease;
   }
 
   .kapi-hover-panel.kapi-visible {
@@ -97,38 +107,68 @@ function ensurePanel(): HTMLDivElement {
   return panel
 }
 
-export function updateHoverPanel(location: ElementLocation | null) {
-  const el = ensurePanel()
+// Anchors the panel just below-left of `anchorRect` (the hovered element),
+// flipping above it if there's no room below, and clamping to the viewport.
+// With no anchor (e.g. during processing, when nothing is hovered), falls
+// back to a fixed top-right corner.
+function position(anchorRect: DOMRect | null) {
+  const panelEl = ensurePanel()
+  const panelRect = panelEl.getBoundingClientRect()
 
-  if (!location) {
-    el.classList.remove('kapi-visible')
+  let left: number
+  let top: number
+
+  if (anchorRect) {
+    left = anchorRect.left
+    top = anchorRect.bottom + GAP
+    if (top + panelRect.height > window.innerHeight - VIEWPORT_MARGIN) {
+      top = anchorRect.top - panelRect.height - GAP
+    }
+  } else {
+    left = window.innerWidth - panelRect.width - CORNER_OFFSET
+    top = CORNER_OFFSET
+  }
+
+  left = Math.min(Math.max(left, VIEWPORT_MARGIN), window.innerWidth - panelRect.width - VIEWPORT_MARGIN)
+  top = Math.max(top, VIEWPORT_MARGIN)
+
+  panelEl.style.transform = `translate(${left}px, ${top}px)`
+}
+
+export function updateHoverPanel(el: Element | null) {
+  const panelEl = ensurePanel()
+
+  if (!el) {
+    panelEl.classList.remove('kapi-visible')
     return
   }
 
-  el.replaceChildren()
+  const location = describeElement(el)
+  panelEl.replaceChildren()
 
   if (location.component) {
-    el.appendChild(renderComponentBadge(location.component, 'kapi-hover-panel-component'))
+    panelEl.appendChild(renderComponentBadge(location.component, 'kapi-hover-panel-component'))
   }
 
   if (location.source) {
     const sourceEl = document.createElement('div')
     sourceEl.className = 'kapi-hover-panel-source'
     sourceEl.textContent = `${location.source.file}:${location.source.line}:${location.source.column}`
-    el.appendChild(sourceEl)
+    panelEl.appendChild(sourceEl)
   }
 
   const selectorEl = document.createElement('div')
   selectorEl.className = 'kapi-hover-panel-selector'
   selectorEl.textContent = location.selector
-  el.appendChild(selectorEl)
+  panelEl.appendChild(selectorEl)
 
-  el.classList.add('kapi-visible')
+  panelEl.classList.add('kapi-visible')
+  position(el.getBoundingClientRect())
 }
 
 export function showProcessingStatus(status: string) {
-  const el = ensurePanel()
-  el.replaceChildren()
+  const panelEl = ensurePanel()
+  panelEl.replaceChildren()
 
   const row = document.createElement('div')
   row.className = 'kapi-hover-panel-status'
@@ -140,6 +180,7 @@ export function showProcessingStatus(status: string) {
   text.textContent = status
 
   row.append(dot, text)
-  el.appendChild(row)
-  el.classList.add('kapi-visible')
+  panelEl.appendChild(row)
+  panelEl.classList.add('kapi-visible')
+  position(null)
 }

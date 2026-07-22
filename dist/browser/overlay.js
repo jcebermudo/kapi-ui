@@ -1,4 +1,4 @@
-import { startInspecting, stopInspecting, setOnHover, setOnElementClick, setDisabled, describeElement } from './inspector.js';
+import { startInspecting, stopInspecting, setOnHover, setOnElementClick, setDisabled } from './inspector.js';
 import { updateHoverPanel, showProcessingStatus } from './hover-panel.js';
 import { beginComment, clearAllComments, cancelOpenDraft, buildCommentsPrompt } from './comments.js';
 import { connectSocket, sendComments, stopComments, setOnCommentsDone, setOnCommentsError, setOnCommentsProcessing } from './socket.js';
@@ -86,7 +86,7 @@ export function insertOverlay() {
     document.body.appendChild(host);
     // 3. Connect the overlay to the element inspector.
     setOnHover((el) => {
-        updateHoverPanel(el ? describeElement(el) : null);
+        updateHoverPanel(el);
     });
     setOnElementClick((el, clientX, clientY) => {
         beginComment(el, clientX, clientY);
