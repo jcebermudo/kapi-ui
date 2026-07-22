@@ -3,7 +3,7 @@
   "version": "0.2.2",
   "description": "Visually prompt your UI",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp src/browser/overlay.css dist/browser/overlay.css",
     "dev": "tsc --watch --preserveWatchOutput",
     "prepublishOnly": "npm run build"
   },

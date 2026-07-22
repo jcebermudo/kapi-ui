@@ -1,0 +1,161 @@
+:host {
+  /* Reset anything inheritable coming from the host page. */
+  all: initial;
+
+  --kapi-bg: #1e1e1f;
+  --kapi-bg-hover: #3b3b3f;
+  --kapi-bg-active: #3b3b3f;
+  --kapi-ring: rgba(255, 255, 255, 0.14);
+  --kapi-divider: rgba(255, 255, 255, 0.16);
+
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483647;
+  color-scheme: dark;
+  touch-action: none;
+}
+
+.kapi-bar {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  padding: 4px;
+  gap: 6px;
+  border-radius: 12px;
+  background: var(--kapi-bg);
+  box-shadow:
+    inset 0 0 0 1px var(--kapi-ring),
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    0 8px 16px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  transition:
+    width 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    border-radius 260ms ease;
+  transition-delay: 120ms, 120ms;
+}
+
+.kapi-bar.kapi-expanded {
+  width: var(--kapi-expanded-width, 40px);
+  border-radius: 12px;
+  transition-delay: 0ms, 0ms;
+}
+
+.kapi-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.kapi-btn:hover { background: var(--kapi-bg-hover); }
+.kapi-btn:active { background: var(--kapi-bg-active); transform: scale(0.92); transition: none; }
+.kapi-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.kapi-logo-btn { cursor: pointer; touch-action: none; }
+
+.kapi-logo-btn.kapi-dragging {
+  cursor: grabbing;
+  background: var(--kapi-bg-active);
+  transform: scale(0.95);
+  transition: none;
+}
+
+.kapi-icon { pointer-events: none; }
+
+.kapi-logo-icon {
+  width: 18px;
+  height: auto;
+  margin-top: 2px;
+  animation: kapi-bounce 1.6s ease-in-out infinite;
+}
+
+.kapi-logo-btn.kapi-dragging .kapi-logo-icon { animation-play-state: paused; }
+
+@keyframes kapi-bounce {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-3px) rotate(-6deg); }
+}
+
+@keyframes kapi-icon-fade-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.8); }
+}
+
+@keyframes kapi-icon-fade-in {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.kapi-logo-btn.kapi-animating-out { animation: kapi-icon-fade-out 200ms ease; }
+.kapi-logo-btn.kapi-animating-in { animation: kapi-icon-fade-in 200ms ease; }
+.kapi-ai-icon { width: 16.5px; height: auto; }
+
+.kapi-delete-icon {
+  width: 15.5px;
+  height: auto;
+  color: white;
+  transition: color 150ms ease;
+}
+
+.kapi-btn:has(.kapi-delete-icon):hover,
+.kapi-btn:has(.kapi-delete-icon):active { background: rgba(255, 77, 79, 0.15); }
+
+.kapi-btn:hover .kapi-delete-icon,
+.kapi-btn:active .kapi-delete-icon { color: #ff4d4f; }
+
+.kapi-stop-icon {
+  width: 20px;
+  height: auto;
+  transition: stroke 150ms ease, color 150ms ease;
+}
+
+.kapi-logo-btn.kapi-stop-mode:hover .kapi-stop-icon,
+.kapi-logo-btn.kapi-stop-mode:active .kapi-stop-icon { stroke: #ff4d4f; color: #ff4d4f; }
+
+.kapi-logo-btn.kapi-stop-mode:hover,
+.kapi-logo-btn.kapi-stop-mode:active { background: rgba(255, 77, 79, 0.15); }
+
+.kapi-extra {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 160ms ease, transform 160ms ease;
+  transition-delay: 0ms;
+}
+
+.kapi-bar.kapi-expanded .kapi-extra {
+  opacity: 1;
+  transform: scale(1);
+  transition-delay: 140ms;
+}
+
+.kapi-btn-group { display: flex; align-items: center; gap: 0; flex: none; }
+
+.kapi-divider {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  background: var(--kapi-divider);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kapi-bar, .kapi-btn, .kapi-extra { transition: none; }
+  .kapi-logo-icon { animation: none; }
+}
