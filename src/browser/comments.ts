@@ -146,13 +146,13 @@ function animateOut(node: Element) {
   node.addEventListener('animationend', onEnd)
 }
 
-function renderMarker(entry: CommentEntry): HTMLElement {
+function renderMarker(entry: CommentEntry, label: string): HTMLElement {
   const wrapper = document.createElement('div')
   wrapper.className = 'kapi-comment'
 
   const marker = document.createElement('div')
   marker.className = 'kapi-comment-marker'
-  marker.textContent = String(entry.id)
+  marker.textContent = label
 
   const tooltip = document.createElement('div')
   tooltip.className = 'kapi-comment-tooltip'
@@ -267,20 +267,43 @@ function renderComposer(
   return wrapper
 }
 
+// Sum of comments stored on every page that iterates before this one, so
+// marker labels continue the global numbering (same localStorage order as
+// buildAllCommentsPrompt, so markers and the copied/sent prompt agree). If the
+// current page has no key yet (no comments saved), every existing page counts —
+// which matches: its key gets appended last on first save.
+function globalOffset(): number {
+  let offset = 0
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (!key?.startsWith('kapi-comments:')) continue
+    if (key === storageKey) break
+    try {
+      const data = JSON.parse(localStorage.getItem(key) || '[]')
+      if (Array.isArray(data)) offset += data.length
+    } catch {
+      /* skip corrupt entry (also skipped by buildAllCommentsPrompt) */
+    }
+  }
+  return offset
+}
+
 function render() {
   const r = ensureRoot()
   r.querySelectorAll('.kapi-comment:not(.kapi-leaving)').forEach((n) => n.remove())
 
-  for (const entry of comments) {
+  const offset = globalOffset()
+  comments.forEach((entry, index) => {
+    const label = String(offset + index + 1)
     if (draft && draft.id === entry.id) {
-      r.appendChild(renderComposer(String(entry.id), draft, draft.text))
-      continue
+      r.appendChild(renderComposer(label, draft, draft.text))
+    } else {
+      r.appendChild(renderMarker(entry, label))
     }
-    r.appendChild(renderMarker(entry))
-  }
+  })
 
   if (draft && draft.id === undefined) {
-    const label = draft.els && draft.els.length > 1 ? `${draft.els.length}` : String(comments.length + 1)
+    const label = draft.els && draft.els.length > 1 ? `${draft.els.length}` : String(offset + comments.length + 1)
     r.appendChild(renderComposer(label, draft, draft.text))
   }
 }
@@ -399,6 +422,7 @@ export function buildAllCommentsPrompt(): string | null {
   }
 
   const sections: string[] = []
+  let n = 0 // one running number shared across every page
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i)
     if (!key?.startsWith('kapi-comments:')) continue
@@ -415,7 +439,7 @@ export function buildAllCommentsPrompt(): string | null {
       const locations = c.targets?.length
         ? c.targets.map((t) => describe(t.selector, t.source, t.component)).join(', ')
         : describe(c.selector, c.source, c.component)
-      return `${c.id}. [${locations}] feedback: ${c.text}`
+      return `${++n}. [${locations}] feedback: ${c.text}`
     })
     sections.push([`## Page: ${key.slice('kapi-comments:'.length)}`, ...lines].join('\n'))
   }
