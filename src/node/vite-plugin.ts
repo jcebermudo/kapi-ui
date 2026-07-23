@@ -1,6 +1,6 @@
 import path from 'path'
 import { fileURLToPath } from 'url'
-import type { Plugin } from 'vite'
+import type { Plugin, HtmlTagDescriptor } from 'vite'
 import { searchForWorkspaceRoot } from 'vite'
 import { walk } from 'estree-walker'
 import MagicString from 'magic-string'
@@ -87,6 +87,7 @@ export default function kapi(options: KapiOptions = {}): Plugin {
     // browser/socket.ts), and we dispatch them to the configured agent. In
     // Nuxt this runs too, since nuxt-module.ts registers this same plugin.
     configureServer(server) {
+      if (options.agent === false) return // manual copy/paste only — no agent session
       if (started) return // configureServer can fire more than once; agent.start() must not
       started = true
 
@@ -184,13 +185,23 @@ export default function kapi(options: KapiOptions = {}): Plugin {
       return { code: s.toString(), map: s.generateMap({ hires: true }) }
     },
     transformIndexHtml() {
-      return [
+      const tags: HtmlTagDescriptor[] = [
         {
           tag: 'script',
           attrs: { type: 'module', src: '/@kapi-ui/overlay' },
-          injectTo: 'body' as const,
+          injectTo: 'body',
         },
       ]
+      // Tell the overlay the agent session is off so it hides the AI button.
+      // Classic inline script runs before the deferred overlay module reads it.
+      if (options.agent === false) {
+        tags.unshift({
+          tag: 'script',
+          children: 'window.__KAPI_AGENT_ENABLED__=false',
+          injectTo: 'body',
+        })
+      }
+      return tags
     },
   }
 }

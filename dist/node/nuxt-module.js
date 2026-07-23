@@ -21,6 +21,11 @@ export default defineNuxtModule({
         // root, so request it from under that prefix or Nitro's page renderer
         // intercepts it before Vite ever sees it.
         (_a = nuxt.options.app.head).script || (_a.script = []);
+        // Tell the overlay the agent session is off so it hides the AI button.
+        // Classic inline script runs before the deferred overlay module reads it.
+        if (options.agent === false) {
+            nuxt.options.app.head.script.push({ innerHTML: 'window.__KAPI_AGENT_ENABLED__=false' });
+        }
         nuxt.options.app.head.script.push({
             src: `${nuxt.options.app.buildAssetsDir}@kapi-ui/overlay`,
             type: 'module',

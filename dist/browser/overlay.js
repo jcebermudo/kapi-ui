@@ -61,6 +61,9 @@ export function insertOverlay() {
         divider.className = 'kapi-divider';
         return divider;
     };
+    // The vite plugin / nuxt module injects this global only when the agent
+    // session is disabled (`agent: false`); default (undefined) means enabled.
+    const agentEnabled = window.__KAPI_AGENT_ENABLED__ !== false;
     const aiBtn = document.createElement('button');
     aiBtn.className = 'kapi-btn';
     aiBtn.type = 'button';
@@ -110,7 +113,8 @@ export function insertOverlay() {
     deleteBtn.addEventListener('click', () => clearAllComments());
     const btnGroup = document.createElement('div');
     btnGroup.className = 'kapi-btn-group';
-    btnGroup.append(aiBtn, copyBtn, deleteBtn);
+    // Manual mode (agent disabled) drops the AI "send" button — Copy/Delete stay.
+    btnGroup.append(...(agentEnabled ? [aiBtn] : []), copyBtn, deleteBtn);
     extra.append(makeDivider(), btnGroup);
     bar.append(logoBtn, extra);
     root.append(style, bar);

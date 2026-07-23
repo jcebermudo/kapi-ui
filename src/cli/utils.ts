@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { execSync, spawnSync } from 'child_process'
-import type { Framework, CodingAgent } from './types.js'
+import type { Framework, CodingAgent, AgentChoice } from './types.js'
 
 // dist/cli/utils.js -> package root (two levels up from dist/cli/)
 const kapiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -48,7 +48,7 @@ export function detectInstalledAgents(): CodingAgent[] {
   return (['claude', 'codex'] as const).filter(isAgentInstalled)
 }
 
-export async function injectVitePlugin(cwd: string, agent: CodingAgent) {
+export async function injectVitePlugin(cwd: string, agent: AgentChoice) {
   const configFile = VITE_CONFIG_CANDIDATES.find((f) => existsSync(path.join(cwd, f)))
 
   if (!configFile) {
@@ -77,7 +77,7 @@ export async function injectVitePlugin(cwd: string, agent: CodingAgent) {
   console.log(`✔ Added kapi plugin to ${configFile}`)
 }
 
-export async function injectNuxtModule(cwd: string, agent: CodingAgent) {
+export async function injectNuxtModule(cwd: string, agent: AgentChoice) {
   const configFile = NUXT_CONFIG_CANDIDATES.find((f) => existsSync(path.join(cwd, f)))
 
   if (!configFile) {

@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import { stdin as input, stdout as output } from 'process';
 import { installKapi, injectVitePlugin, injectNuxtModule, detectFramework, detectInstalledAgents, KAPI_PACKAGE_NAME, } from './utils.js';
+// How the chosen agent renders in config: a quoted agent name, or bare `false`
+// for the manual copy/paste-only workflow.
+const agentConfigValue = (agent) => (agent === false ? 'false' : `'${agent}'`);
 const FRAMEWORK_SETUP = {
     nuxt: {
         label: 'Nuxt',
@@ -10,7 +13,7 @@ Add this manually to your nuxt.config:
 
   export default defineNuxtConfig({
     modules: ['${KAPI_PACKAGE_NAME}/nuxt'],
-    kapi: { agent: '${agent}' },
+    kapi: { agent: ${agentConfigValue(agent)} },
   })
 `,
     },
@@ -23,7 +26,7 @@ Add this manually to your vite.config:
   import kapi from '${KAPI_PACKAGE_NAME}/vite-plugin'
 
   export default defineConfig({
-    plugins: [kapi({ agent: '${agent}' })],
+    plugins: [kapi({ agent: ${agentConfigValue(agent)} })],
   })
 `,
     },
@@ -32,6 +35,7 @@ const AGENT_LABELS = {
     claude: 'Claude Code',
     codex: 'Codex (experimental)',
 };
+const modeLabel = (agent) => (agent === false ? 'manual copy/paste' : AGENT_LABELS[agent]);
 // Minimal dependency-free single-select list: renders bulleted options and
 // lets the user move with ↑/↓ (or j/k) and confirm with Enter, redrawing the
 // list in place. Falls back to the default option when stdin isn't a TTY
@@ -111,18 +115,37 @@ function parseAgentFlag() {
         return value;
     throw new Error('Missing or invalid --agent value. Use "claude" or "codex".');
 }
-async function chooseAgent() {
+// `--manual` (or `--agent=false`/`--agent=none`) forces the copy/paste-only
+// workflow without prompting.
+function parseManualFlag() {
+    const args = process.argv.slice(2);
+    if (args.includes('--manual'))
+        return true;
+    const inline = args.find((arg) => arg.startsWith('--agent='))?.split('=')[1];
+    return inline === 'false' || inline === 'none';
+}
+async function chooseMode() {
+    if (parseManualFlag())
+        return false;
     const requestedAgent = parseAgentFlag();
     const installedAgents = detectInstalledAgents();
     if (requestedAgent) {
         if (!installedAgents.includes(requestedAgent)) {
-            throw new Error(`${requestedAgent} CLI is not installed. Install it, or run setup without --agent.`);
+            throw new Error(`${requestedAgent} CLI is not installed. Install it, or run setup with --manual.`);
         }
         return requestedAgent;
     }
+    // No agent installed → nothing to send to, so set up the manual workflow.
     if (installedAgents.length === 0) {
-        throw new Error('Neither Claude Code nor Codex CLI is installed. Install one, then run setup again.');
+        console.log('No coding agent (Claude Code or Codex) detected — setting up the manual copy/paste workflow.');
+        return false;
     }
+    const useAgent = await promptSelect('How should Kapi handle your comments?', [
+        { label: 'Send them to a coding agent', value: true },
+        { label: 'Manual copy & paste only', value: false },
+    ]);
+    if (!useAgent)
+        return false;
     if (installedAgents.length === 1)
         return installedAgents[0];
     return promptSelect('Which coding agent should Kapi use?', installedAgents.map((agent) => ({ label: AGENT_LABELS[agent], value: agent })));
@@ -145,14 +168,14 @@ async function setup() {
     }
     let agent;
     try {
-        agent = await chooseAgent();
+        agent = await chooseMode();
     }
     catch (err) {
         console.error(`Unable to choose a coding agent: ${err instanceof Error ? err.message : String(err)}`);
         process.exit(1);
     }
     const { label, inject, manualInstructions } = FRAMEWORK_SETUP[framework];
-    console.log(`\n✨ Detected ${label}; using ${AGENT_LABELS[agent]} — setting up kapi...\n`);
+    console.log(`\n✨ Detected ${label}; using ${modeLabel(agent)} — setting up kapi...\n`);
     try {
         installKapi(cwd);
         await inject(cwd, agent);
