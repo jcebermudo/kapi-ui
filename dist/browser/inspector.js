@@ -1,6 +1,6 @@
 import { findTraceFromElement } from './trace-record.js';
 const HIGHLIGHT_COLOR = '34, 197, 94'; // green-500, as an rgb triplet for reuse in rgba()
-const SELECTION_COLOR = '59, 130, 246'; // blue-500, for multi-select outlines/marquee
+const SELECTION_COLOR = '34, 197, 94'; // green-500, matches single-select highlight; for multi-select outlines/marquee
 const IGNORE_SELECTOR = 'kapi-overlay, kapi-hover-panel, kapi-comments';
 const DRAG_THRESHOLD = 4;
 const BOX_SELECT_STEP = 16; // px between elementsFromPoint samples inside a drag box
@@ -36,7 +36,7 @@ function ensureMarqueeEl() {
     pointer-events: none;
     box-sizing: border-box;
     background: rgba(${SELECTION_COLOR}, 0.1);
-    border: 1px dashed rgb(${SELECTION_COLOR});
+    border: 1px solid rgb(${SELECTION_COLOR});
     z-index: 2147483646;
     display: none;
   `;
