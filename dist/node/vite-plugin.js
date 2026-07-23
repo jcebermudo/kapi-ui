@@ -56,7 +56,22 @@ function createUniqueIdentifier(base, identifiers) {
     identifiers.add(identifier);
     return identifier;
 }
-export default function kapi(options = {}) {
+// Normalize + validate the `agent` option once, up front. `agent` is required
+// (no default): a missing or bad value throws at dev-server startup with a
+// clear message instead of silently falling back to Claude — which would be
+// especially confusing for a value the user meant as "off" (e.g. 'none').
+function resolveAgent(agent) {
+    if (agent === undefined) {
+        throw new Error("[kapi-ui] The `agent` option is required. Set it to 'claude', 'codex', or false (manual copy/paste).");
+    }
+    if (agent === false)
+        return false; // manual copy/paste
+    if (agent === 'claude' || agent === 'codex')
+        return agent;
+    throw new Error(`[kapi-ui] Invalid \`agent\` option: ${JSON.stringify(agent)}. Use 'claude', 'codex', or false (manual copy/paste).`);
+}
+export default function kapi(options) {
+    const agent = resolveAgent(options?.agent);
     let started = false;
     return {
         name: 'kapi-ui',
@@ -79,14 +94,14 @@ export default function kapi(options = {}) {
         // browser/socket.ts), and we dispatch them to the configured agent. In
         // Nuxt this runs too, since nuxt-module.ts registers this same plugin.
         configureServer(server) {
-            if (options.agent === false)
+            if (agent === false)
                 return; // manual copy/paste only — no agent session
             if (started)
                 return; // configureServer can fire more than once; agent.start() must not
             started = true;
             const cwd = process.cwd();
-            const agent = options.agent === 'codex' ? codexAgent : claudeAgent;
-            agent.start(cwd);
+            const runtime = agent === 'codex' ? codexAgent : claudeAgent;
+            runtime.start(cwd);
             // Vite hands the event handler a fresh WebSocketClient wrapper but a
             // stable underlying `.socket` per connection; key one AgentClient per
             // socket so submit/stop/close all agree on identity and share a sender.
@@ -99,13 +114,13 @@ export default function kapi(options = {}) {
                 }
                 return existing;
             };
-            server.ws.on('kapi:submit', (data, client) => agent.submit(data.prompt, clientFor(client), cwd));
-            server.ws.on('kapi:stop', (_data, client) => agent.stop(clientFor(client)));
+            server.ws.on('kapi:submit', (data, client) => runtime.submit(data.prompt, clientFor(client), cwd));
+            server.ws.on('kapi:stop', (_data, client) => runtime.stop(clientFor(client)));
             server.ws.on('connection', (socket) => {
                 socket.on('close', () => {
                     const existing = clients.get(socket);
                     if (existing) {
-                        agent.onClose(existing);
+                        runtime.onClose(existing);
                         clients.delete(socket);
                     }
                 });
@@ -185,7 +200,7 @@ export default function kapi(options = {}) {
             ];
             // Tell the overlay the agent session is off so it hides the AI button.
             // Classic inline script runs before the deferred overlay module reads it.
-            if (options.agent === false) {
+            if (agent === false) {
                 tags.unshift({
                     tag: 'script',
                     children: 'window.__KAPI_AGENT_ENABLED__=false',

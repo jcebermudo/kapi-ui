@@ -35,9 +35,12 @@ export interface AgentRuntime {
 
 export interface KapiOptions {
   /**
-   * CLI agent used to process comments, or `false` to disable the agent
-   * session entirely and use only the manual copy/paste workflow (the AI
-   * "send" button is hidden; Copy still works). Defaults to Claude Code.
+   * How comments are processed. Required — there is no default:
+   * - `'claude'` / `'codex'` — agent mode with that CLI agent
+   * - `false` — manual copy/paste only (the AI "send" button is hidden; Copy
+   *   still works)
+   *
+   * Omitting it, or any other value, throws at dev-server startup.
    */
-  agent?: KapiAgent | false
+  agent: KapiAgent | false
 }
