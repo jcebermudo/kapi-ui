@@ -2,7 +2,7 @@ import { startInspecting, stopInspecting, setOnHover, setOnElementClick, setOnSe
 import { updateHoverPanel, showProcessingStatus } from './hover-panel.js';
 import { beginComment, updateSelection, clearAllComments, cancelOpenDraft, buildCommentsPrompt } from './comments.js';
 import { connectSocket, sendComments, stopComments, setOnCommentsDone, setOnCommentsError, setOnCommentsProcessing } from './socket.js';
-import { LOGO_SVG, AI_SVG, DELETE_SVG, STOP_SVG } from './icons.js';
+import { LOGO_SVG, AI_SVG, COPY_SVG, DELETE_SVG, STOP_SVG } from './icons.js';
 import styles from './styles/overlay.css?inline';
 const KAPI_TAG = 'kapi-overlay';
 const POSITION_KEY = 'kapi-overlay-position';
@@ -71,6 +71,11 @@ export function insertOverlay() {
         if (prompt)
             sendComments(prompt);
     });
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'kapi-btn';
+    copyBtn.type = 'button';
+    copyBtn.setAttribute('aria-label', 'Copy');
+    copyBtn.innerHTML = COPY_SVG;
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'kapi-btn';
     deleteBtn.type = 'button';
@@ -79,7 +84,7 @@ export function insertOverlay() {
     deleteBtn.addEventListener('click', () => clearAllComments());
     const btnGroup = document.createElement('div');
     btnGroup.className = 'kapi-btn-group';
-    btnGroup.append(aiBtn, deleteBtn);
+    btnGroup.append(aiBtn, copyBtn, deleteBtn);
     extra.append(makeDivider(), btnGroup);
     bar.append(logoBtn, extra);
     root.append(style, bar);

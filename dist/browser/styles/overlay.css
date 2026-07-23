@@ -103,6 +103,7 @@
 .kapi-logo-btn.kapi-animating-out { animation: kapi-icon-fade-out 200ms ease; }
 .kapi-logo-btn.kapi-animating-in { animation: kapi-icon-fade-in 200ms ease; }
 .kapi-ai-icon { width: 16.5px; height: auto; }
+.kapi-copy-icon { width: 16.5px; height: auto; color: white; }
 
 .kapi-delete-icon {
   width: 15px;
