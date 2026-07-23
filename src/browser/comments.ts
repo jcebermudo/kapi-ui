@@ -411,6 +411,46 @@ export function buildCommentsPrompt(): string | null {
   ].join('\n')
 }
 
+// Builds one prompt covering comments from every page, read straight from
+// localStorage (each page persists under `kapi-comments:<pathname>`). Other
+// pages aren't in the DOM, so locations come from the stored selector/source
+// rather than a live element.
+export function buildAllCommentsPrompt(): string | null {
+  const describe = (selector: string, source: SourceLocation | null, component: ComponentInfo | null) => {
+    const location = source ? `${source.file}:${source.line}:${source.column}` : selector
+    return `${component ? `<${component.name}> ` : ''}${location}`
+  }
+
+  const sections: string[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (!key?.startsWith('kapi-comments:')) continue
+
+    let data: StoredComment[]
+    try {
+      data = JSON.parse(localStorage.getItem(key) || '[]')
+    } catch {
+      continue // skip corrupt entry
+    }
+    if (!data.length) continue
+
+    const lines = data.map((c) => {
+      const locations = c.targets?.length
+        ? c.targets.map((t) => describe(t.selector, t.source, t.component)).join(', ')
+        : describe(c.selector, c.source, c.component)
+      return `${c.id}. [${locations}] feedback: ${c.text}`
+    })
+    sections.push([`## Page: ${key.slice('kapi-comments:'.length)}`, ...lines].join('\n'))
+  }
+
+  if (!sections.length) return null
+  return [
+    'Address each of the following review comments left on specific elements in this app, grouped by page:',
+    '',
+    ...sections,
+  ].join('\n\n')
+}
+
 export function clearAllComments() {
   root?.querySelectorAll('.kapi-comment').forEach((n) => animateOut(n))
   comments = []

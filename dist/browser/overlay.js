@@ -1,6 +1,6 @@
 import { startInspecting, stopInspecting, setOnHover, setOnElementClick, setOnSelectionChange, setDisabled } from './inspector.js';
 import { updateHoverPanel, showProcessingStatus } from './hover-panel.js';
-import { beginComment, updateSelection, clearAllComments, cancelOpenDraft, buildCommentsPrompt } from './comments.js';
+import { beginComment, updateSelection, clearAllComments, cancelOpenDraft, buildCommentsPrompt, buildAllCommentsPrompt } from './comments.js';
 import { connectSocket, sendComments, stopComments, setOnCommentsDone, setOnCommentsError, setOnCommentsProcessing } from './socket.js';
 import { LOGO_SVG, AI_SVG, COPY_SVG, DELETE_SVG, STOP_SVG } from './icons.js';
 import styles from './styles/overlay.css?inline';
@@ -76,6 +76,11 @@ export function insertOverlay() {
     copyBtn.type = 'button';
     copyBtn.setAttribute('aria-label', 'Copy');
     copyBtn.innerHTML = COPY_SVG;
+    copyBtn.addEventListener('click', () => {
+        const prompt = buildAllCommentsPrompt();
+        if (prompt)
+            navigator.clipboard?.writeText(prompt);
+    });
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'kapi-btn';
     deleteBtn.type = 'button';
