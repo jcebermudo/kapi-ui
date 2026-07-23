@@ -128,7 +128,22 @@ function position(target: { el: Element; ratioX: number; ratioY: number }, wrapp
   const rect = target.el.getBoundingClientRect()
   const x = rect.left + target.ratioX * rect.width
   const y = rect.top + target.ratioY * rect.height
-  wrapper.style.transform = `translate(${x - MARKER_RADIUS}px, ${y - MARKER_RADIUS}px)`
+  wrapper.style.setProperty('--kapi-x', `${x - MARKER_RADIUS}px`)
+  wrapper.style.setProperty('--kapi-y', `${y - MARKER_RADIUS}px`)
+}
+
+// Plays the exit animation on a wrapper, then removes it. The node keeps its
+// `.kapi-comment` class (so its position vars still apply) but gains
+// `.kapi-leaving`, which render()/repositionAll skip — so it animates out
+// independently of the fresh nodes render() builds, then self-removes.
+function animateOut(node: Element) {
+  node.classList.add('kapi-leaving')
+  const onEnd = (e: Event) => {
+    if (e.target !== node) return
+    node.removeEventListener('animationend', onEnd)
+    node.remove()
+  }
+  node.addEventListener('animationend', onEnd)
 }
 
 function renderMarker(entry: CommentEntry): HTMLElement {
@@ -254,7 +269,7 @@ function renderComposer(
 
 function render() {
   const r = ensureRoot()
-  r.querySelectorAll('.kapi-comment').forEach((n) => n.remove())
+  r.querySelectorAll('.kapi-comment:not(.kapi-leaving)').forEach((n) => n.remove())
 
   for (const entry of comments) {
     if (draft && draft.id === entry.id) {
@@ -272,7 +287,7 @@ function render() {
 
 function repositionAll() {
   if (!root) return
-  const wrappers = root.querySelectorAll<HTMLElement>('.kapi-comment')
+  const wrappers = root.querySelectorAll<HTMLElement>('.kapi-comment:not(.kapi-leaving)')
   const targets: { el: Element; ratioX: number; ratioY: number }[] = [...comments]
   if (draft) targets.push(draft)
   wrappers.forEach((wrapper, i) => {
@@ -360,6 +375,8 @@ function submitDraft(rawText: string) {
 }
 
 function cancelDraft() {
+  const node = root?.querySelector('.kapi-comment-composer')?.closest('.kapi-comment')
+  if (node) animateOut(node)
   draft = null
   unlockHighlight()
   clearSelection()
@@ -395,6 +412,7 @@ export function buildCommentsPrompt(): string | null {
 }
 
 export function clearAllComments() {
+  root?.querySelectorAll('.kapi-comment').forEach((n) => animateOut(n))
   comments = []
   if (draft) {
     draft = null
@@ -454,6 +472,8 @@ export function updateSelection(els: Element[]) {
 }
 
 function deleteComment(id: number) {
+  const node = root?.querySelector('.kapi-comment-composer')?.closest('.kapi-comment')
+  if (node) animateOut(node)
   comments = comments.filter((c) => c.id !== id)
   // Renumber so ids stay contiguous (1..n) and match marker labels.
   comments.forEach((c, i) => (c.id = i + 1))

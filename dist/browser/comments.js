@@ -105,7 +105,22 @@ function position(target, wrapper) {
     const rect = target.el.getBoundingClientRect();
     const x = rect.left + target.ratioX * rect.width;
     const y = rect.top + target.ratioY * rect.height;
-    wrapper.style.transform = `translate(${x - MARKER_RADIUS}px, ${y - MARKER_RADIUS}px)`;
+    wrapper.style.setProperty('--kapi-x', `${x - MARKER_RADIUS}px`);
+    wrapper.style.setProperty('--kapi-y', `${y - MARKER_RADIUS}px`);
+}
+// Plays the exit animation on a wrapper, then removes it. The node keeps its
+// `.kapi-comment` class (so its position vars still apply) but gains
+// `.kapi-leaving`, which render()/repositionAll skip — so it animates out
+// independently of the fresh nodes render() builds, then self-removes.
+function animateOut(node) {
+    node.classList.add('kapi-leaving');
+    const onEnd = (e) => {
+        if (e.target !== node)
+            return;
+        node.removeEventListener('animationend', onEnd);
+        node.remove();
+    };
+    node.addEventListener('animationend', onEnd);
 }
 function renderMarker(entry) {
     const wrapper = document.createElement('div');
@@ -207,7 +222,7 @@ function renderComposer(label, target, initialText = '') {
 }
 function render() {
     const r = ensureRoot();
-    r.querySelectorAll('.kapi-comment').forEach((n) => n.remove());
+    r.querySelectorAll('.kapi-comment:not(.kapi-leaving)').forEach((n) => n.remove());
     for (const entry of comments) {
         if (draft && draft.id === entry.id) {
             r.appendChild(renderComposer(String(entry.id), draft, draft.text));
@@ -223,7 +238,7 @@ function render() {
 function repositionAll() {
     if (!root)
         return;
-    const wrappers = root.querySelectorAll('.kapi-comment');
+    const wrappers = root.querySelectorAll('.kapi-comment:not(.kapi-leaving)');
     const targets = [...comments];
     if (draft)
         targets.push(draft);
@@ -305,6 +320,9 @@ function submitDraft(rawText) {
     render();
 }
 function cancelDraft() {
+    const node = root?.querySelector('.kapi-comment-composer')?.closest('.kapi-comment');
+    if (node)
+        animateOut(node);
     draft = null;
     unlockHighlight();
     clearSelection();
@@ -336,6 +354,7 @@ export function buildCommentsPrompt() {
     ].join('\n');
 }
 export function clearAllComments() {
+    root?.querySelectorAll('.kapi-comment').forEach((n) => animateOut(n));
     comments = [];
     if (draft) {
         draft = null;
@@ -392,6 +411,9 @@ export function updateSelection(els) {
     render();
 }
 function deleteComment(id) {
+    const node = root?.querySelector('.kapi-comment-composer')?.closest('.kapi-comment');
+    if (node)
+        animateOut(node);
     comments = comments.filter((c) => c.id !== id);
     // Renumber so ids stay contiguous (1..n) and match marker labels.
     comments.forEach((c, i) => (c.id = i + 1));
