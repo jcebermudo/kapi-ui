@@ -156,10 +156,9 @@ function handleBlockerPointerDown(e: PointerEvent) {
   if (e.button !== 0) return
   boxDragStart = { x: e.clientX, y: e.clientY }
   boxDragging = false
-  // Drop the hover highlight on the element under the cursor the instant the
-  // press starts, so it doesn't linger as a stale single-hover box while the
-  // drag-select takes over.
-  clearHighlight()
+  // Leave the hover highlight up during the press: a plain click keeps it lit
+  // straight through to lockHighlightOn (no flicker), and a real drag-select
+  // clears it once the drag threshold is crossed (see handleBlockerPointerMove).
   blockerEl?.setPointerCapture(e.pointerId)
 }
 
