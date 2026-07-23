@@ -113,13 +113,12 @@ export function clearSelection() {
     selected.clear();
     notifySelectionChange();
 }
-function selectElementsInBox(x1, y1, x2, y2, additive) {
+function elementsInBox(x1, y1, x2, y2) {
     const left = Math.min(x1, x2);
     const right = Math.max(x1, x2);
     const top = Math.min(y1, y2);
     const bottom = Math.max(y1, y2);
-    if (!additive)
-        selected.clear();
+    const found = new Set();
     for (let y = top; y <= bottom; y += BOX_SELECT_STEP) {
         for (let x = left; x <= right; x += BOX_SELECT_STEP) {
             const stack = document.elementsFromPoint(x, y);
@@ -127,9 +126,16 @@ function selectElementsInBox(x1, y1, x2, y2, additive) {
                 continue;
             const el = stack.find(isInspectable);
             if (el)
-                selected.add(el);
+                found.add(el);
         }
     }
+    return [...found];
+}
+function selectElementsInBox(x1, y1, x2, y2, additive) {
+    if (!additive)
+        selected.clear();
+    for (const el of elementsInBox(x1, y1, x2, y2))
+        selected.add(el);
     notifySelectionChange();
 }
 function handleBlockerPointerDown(e) {
@@ -137,6 +143,10 @@ function handleBlockerPointerDown(e) {
         return;
     boxDragStart = { x: e.clientX, y: e.clientY };
     boxDragging = false;
+    // Drop the hover highlight on the element under the cursor the instant the
+    // press starts, so it doesn't linger as a stale single-hover box while the
+    // drag-select takes over.
+    clearHighlight();
     blockerEl?.setPointerCapture(e.pointerId);
 }
 function handleBlockerPointerMove(e) {
@@ -151,6 +161,11 @@ function handleBlockerPointerMove(e) {
         clearHighlight(); // hide the hover box so it doesn't fight the marquee
     }
     paintMarquee(boxDragStart.x, boxDragStart.y, e.clientX, e.clientY);
+    // Live-preview every element the box currently touches (union with the
+    // existing selection when additive), so the user sees what they're grabbing
+    // before releasing. Committed to `selected` only on pointer-up.
+    const touched = elementsInBox(boxDragStart.x, boxDragStart.y, e.clientX, e.clientY);
+    previewElements(e.shiftKey ? [...new Set([...selected, ...touched])] : touched);
 }
 function handleBlockerPointerUp(e) {
     if (!boxDragStart)
@@ -325,7 +340,12 @@ function clearHighlight() {
     onHover?.(null);
 }
 function handlePointerMove(e) {
-    if (locked || boxDragging)
+    // Freeze hover once the pointer is down on the blocker (boxDragStart set):
+    // the cursor is committing to a click or a drag-select, not hovering. This
+    // also wins the capture-phase race on the drag's first move, where this
+    // handler would otherwise repaint the hover box a beat before the blocker's
+    // handler clears it.
+    if (locked || boxDragging || boxDragStart)
         return;
     const stack = document.elementsFromPoint(e.clientX, e.clientY);
     // The overlay/hover-panel/comments UI sits above the blocker in z-index, so
