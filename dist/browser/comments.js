@@ -1,6 +1,6 @@
 import { lockHighlightOn, unlockHighlight, clearHighlightIfNotInspecting, getSourceLocation, getComponentInfo, renderComponentBadge, isDisabled, clearSelection, isBoxSelectClick, lockWithoutHighlight, previewElements, clearPreview, } from './inspector.js';
 import { ARROW_SVG, DELETE_SVG } from './icons.js';
-import STYLES from './comments.css?inline';
+import STYLES from './styles/comments.css?inline';
 const TAG = 'kapi-comments';
 const MARKER_SIZE = 22;
 const MARKER_RADIUS = MARKER_SIZE / 2;

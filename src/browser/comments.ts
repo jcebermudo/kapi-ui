@@ -14,7 +14,7 @@ import {
 } from './inspector.js'
 import { ARROW_SVG, DELETE_SVG } from './icons.js'
 import type { CommentEntry, CommentTarget, ComponentInfo, Draft, SourceLocation, StoredComment } from './types.js'
-import STYLES from './comments.css?inline'
+import STYLES from './styles/comments.css?inline'
 
 const TAG = 'kapi-comments'
 const MARKER_SIZE = 22

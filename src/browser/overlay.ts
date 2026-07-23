@@ -3,7 +3,7 @@ import { updateHoverPanel, showProcessingStatus } from './hover-panel.js'
 import { beginComment, updateSelection, clearAllComments, cancelOpenDraft, buildCommentsPrompt } from './comments.js'
 import { connectSocket, sendComments, stopComments, setOnCommentsDone, setOnCommentsError, setOnCommentsProcessing } from './socket.js'
 import { LOGO_SVG, AI_SVG, DELETE_SVG, STOP_SVG } from './icons.js'
-import styles from './overlay.css?inline'
+import styles from './styles/overlay.css?inline'
 import type { Position } from './types.js'
 
 const KAPI_TAG = 'kapi-overlay'
