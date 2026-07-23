@@ -101,6 +101,23 @@ function ensureRoot() {
 function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
 }
+const PANEL_MARGIN = 8;
+// The tooltip/composer defaults to the marker's right, vertically centered
+// on it. Flips it to the marker's left if that would run past the right
+// edge of the viewport, and clamps its vertical centering so it can't run
+// past the top/bottom edge either — both are recalculated on every reveal
+// and on scroll/resize (see repositionAll), since the marker's on-screen
+// position can move independently of the panel's fixed size.
+function adjustPanelPosition(marker, panel) {
+    const markerRect = marker.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const overflowsRight = markerRect.right + 8 + panelRect.width + PANEL_MARGIN > window.innerWidth;
+    panel.classList.toggle('kapi-comment-panel-left', overflowsRight);
+    const idealTop = markerRect.top + markerRect.height / 2 - panelRect.height / 2;
+    const clampedTop = clamp(idealTop, PANEL_MARGIN, window.innerHeight - panelRect.height - PANEL_MARGIN);
+    panel.style.top = `${clampedTop - markerRect.top}px`;
+    panel.style.transform = 'none';
+}
 function position(target, wrapper) {
     const rect = target.el.getBoundingClientRect();
     const x = rect.left + target.ratioX * rect.width;
@@ -156,7 +173,10 @@ function renderMarker(entry, label) {
         countEl.textContent = `applies to ${entry.targets.length} elements`;
         tooltip.appendChild(countEl);
     }
-    marker.addEventListener('mouseenter', () => wrapper.classList.add('kapi-hovering'));
+    marker.addEventListener('mouseenter', () => {
+        wrapper.classList.add('kapi-hovering');
+        adjustPanelPosition(marker, tooltip);
+    });
     marker.addEventListener('mouseleave', () => wrapper.classList.remove('kapi-hovering'));
     marker.addEventListener('click', () => beginEdit(entry));
     wrapper.append(marker, tooltip);
@@ -221,10 +241,11 @@ function renderComposer(label, target, initialText = '') {
         input.focus();
         input.setSelectionRange(input.value.length, input.value.length);
         autoGrow();
-        // Lock the composer's vertical position to its initial (single-line) height,
-        // centered on the marker, so later growth only extends it downward instead
-        // of continuously re-centering (which would grow it upward too).
-        composer.style.top = `${MARKER_RADIUS - composer.getBoundingClientRect().height / 2}px`;
+        // Lock the composer's position to its initial (single-line) height and
+        // whichever side/vertical offset fits the viewport, so later growth only
+        // extends it downward instead of continuously re-centering (which would
+        // grow it upward too) or re-flipping sides mid-type.
+        adjustPanelPosition(marker, composer);
     });
     return wrapper;
 }
@@ -281,6 +302,19 @@ function repositionAll() {
         const target = targets[i];
         if (target)
             position(target, wrapper);
+        // Re-flip/re-clamp any panel currently on screen — the marker's position
+        // just moved, so a fit that held before this scroll/resize might not now.
+        const marker = wrapper.querySelector('.kapi-comment-marker');
+        if (!marker)
+            return;
+        const composer = wrapper.querySelector('.kapi-comment-composer');
+        if (composer) {
+            adjustPanelPosition(marker, composer);
+            return;
+        }
+        const tooltip = wrapper.querySelector('.kapi-comment-tooltip');
+        if (tooltip && wrapper.classList.contains('kapi-hovering'))
+            adjustPanelPosition(marker, tooltip);
     });
 }
 window.addEventListener('resize', repositionAll);

@@ -74,8 +74,11 @@
   display: none;
   position: absolute;
   left: calc(var(--kapi-marker-size) + 8px);
-  top: 50%;
-  transform: translateY(-50%);
+  /* top/transform are set in JS on every reveal (see adjustPanelPosition in
+     comments.ts), which vertically centers on the marker by default and
+     clamps within the viewport otherwise — these are just a pre-JS fallback. */
+  top: 0;
+  transform: none;
   width: var(--kapi-panel-width);
   box-sizing: border-box;
   border-radius: 12px;
@@ -85,6 +88,15 @@
     0 2px 4px rgba(0, 0, 0, 0.2),
     0 8px 16px rgba(0, 0, 0, 0.2);
   pointer-events: auto;
+}
+
+/* Flips the panel to the marker's left — set in JS (see adjustPanelPosition
+   in comments.ts) when the default right-of-marker position would run past
+   the right edge of the viewport. */
+.kapi-comment-tooltip.kapi-comment-panel-left,
+.kapi-comment-composer.kapi-comment-panel-left {
+  left: auto;
+  right: calc(var(--kapi-marker-size) + 8px);
 }
 
 .kapi-comment-tooltip {
@@ -102,11 +114,11 @@
 @keyframes kapi-tooltip-in {
   from {
     opacity: 0;
-    transform: translateY(-50%) translateY(8px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(-50%);
+    transform: translateY(0);
   }
 }
 
