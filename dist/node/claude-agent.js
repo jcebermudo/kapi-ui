@@ -4,7 +4,6 @@
 // and --resume-from-disk overhead on each comment: the process, its
 // tool-use context, and the prompt cache all stay warm between submissions.
 import { spawn } from 'child_process';
-import { send } from './ws-utils.js';
 const KAPI_SESSION_PROMPT = "You're applying UI edits from visual comments. Each comment gives the exact file:line:col — go straight there, don't search for it. Make only the requested edit. " +
     "Before finishing, check whether a higher-precedence rule on the same element would override the property you just changed — an inline `style` attribute, `!important`, a more specific selector, or a utility class applied after it. You have no way to see the rendered result, so if such a conflict exists, edit the highest-precedence source instead of (or in addition to) the one you found first, so the change actually takes visible effect. " +
     "Stay terse: no narration between tool calls, and finish with at most one short sentence.";
@@ -49,9 +48,9 @@ let cwd = process.cwd();
 let sessionId = null;
 let claudeProc = null;
 let busy = false; // a turn is currently running on the process
-// Which socket to notify when the running turn finishes. Null for the
-// startup turn that sends KAPI_SESSION_PROMPT — there's no socket yet.
-let activeSocket = null;
+// Which client to notify when the running turn finishes. Null for the
+// startup turn that sends KAPI_SESSION_PROMPT — there's no tab yet.
+let activeClient = null;
 // FIFO queue of turns waiting for the process to free up. The very first
 // entry, queued at server startup, is the KAPI_SESSION_PROMPT itself.
 const pendingPrompts = [];
@@ -94,15 +93,14 @@ function ensureClaudeProc() {
             if (event.type === 'result') {
                 // Turn finished — notify the submitter (if any) and start the next queued turn.
                 busy = false;
-                if (activeSocket)
-                    send(activeSocket, { type: 'comments:done' });
-                activeSocket = null;
+                activeClient?.send('kapi:done');
+                activeClient = null;
                 processQueue();
                 continue;
             }
             const status = describeEvent(event);
-            if (status && activeSocket)
-                send(activeSocket, { type: 'comments:processing', status });
+            if (status)
+                activeClient?.send('kapi:processing', { status });
         }
     });
     claude.stderr.pipe(process.stderr);
@@ -133,16 +131,14 @@ function processQueue() {
         // Nothing will retry this later, so drain the whole backlog now rather
         // than stranding everything behind the first failed prompt.
         const stranded = pendingPrompts.splice(0, pendingPrompts.length);
-        for (const { socket } of stranded)
-            if (socket)
-                send(socket, { type: 'comments:done' });
+        for (const { client } of stranded)
+            client?.send('kapi:done');
         return;
     }
     const next = pendingPrompts.shift();
     busy = true;
-    activeSocket = next.socket;
-    if (next.socket)
-        send(next.socket, { type: 'comments:processing', status: 'Starting...' });
+    activeClient = next.client;
+    next.client?.send('kapi:processing', { status: 'Starting...' });
     try {
         claude.stdin.write(JSON.stringify({
             type: 'user',
@@ -152,7 +148,7 @@ function processQueue() {
     catch (err) {
         console.error('[kapi] failed to write prompt to claude stdin:', err);
         busy = false;
-        activeSocket = null;
+        activeClient = null;
         processQueue();
     }
 }
@@ -162,28 +158,28 @@ export const claudeAgent = {
         // Send the kapi instructions as the session's first turn, before any
         // tab connects — also warms Claude's prompt cache so the user's actual
         // first submission (turn 2) doesn't pay a cold-cache latency hit.
-        pendingPrompts.push({ prompt: KAPI_SESSION_PROMPT, socket: null });
+        pendingPrompts.push({ prompt: KAPI_SESSION_PROMPT, client: null });
         processQueue();
     },
-    submit(prompt, socket) {
-        pendingPrompts.push({ prompt, socket });
+    submit(prompt, client) {
+        pendingPrompts.push({ prompt, client });
         processQueue();
     },
-    stop(socket) {
-        // Drop anything this socket queued but hasn't started.
+    stop(client) {
+        // Drop anything this client queued but hasn't started.
         for (let i = pendingPrompts.length - 1; i >= 0; i--) {
-            if (pendingPrompts[i].socket === socket)
+            if (pendingPrompts[i].client === client)
                 pendingPrompts.splice(i, 1);
         }
-        if (activeSocket === socket && claudeProc) {
+        if (activeClient === client && claudeProc) {
             console.log('[kapi] stopping claude process');
             claudeProc.kill();
             // close handler respawns the process (resuming the session) so the
             // next queued turn — from any tab — continues normally.
         }
     },
-    onClose(socket) {
+    onClose(client) {
         // A closed tab shouldn't leave orphaned queued work or a stuck queue.
-        claudeAgent.stop(socket);
+        claudeAgent.stop(client);
     },
 };

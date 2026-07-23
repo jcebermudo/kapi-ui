@@ -5,9 +5,9 @@ import { searchForWorkspaceRoot } from 'vite'
 import { walk } from 'estree-walker'
 import MagicString from 'magic-string'
 import { SourceMapConsumer } from 'source-map-js'
-import { startServer } from './server.js'
-import { KAPI_SERVER_PORT } from '../constants.js'
-import type { KapiOptions } from './types.js'
+import { claudeAgent } from './claude-agent.js'
+import { codexAgent } from './codex-agent.js'
+import type { KapiOptions, AgentClient } from './types.js'
 
 export type { KapiOptions, KapiAgent } from './types.js'
 
@@ -64,7 +64,7 @@ function createUniqueIdentifier(base: string, identifiers: Set<string>): string 
 }
 
 export default function kapi(options: KapiOptions = {}): Plugin {
-  let serverPort: number | null = null
+  let started = false
 
   return {
     name: 'kapi-ui',
@@ -82,14 +82,42 @@ export default function kapi(options: KapiOptions = {}): Plugin {
         },
       }
     },
-    configureServer() {
-      startServer(KAPI_SERVER_PORT, options)
-        .then(port => {
-          serverPort = port
+    // Ride Vite's own HMR websocket instead of standing up a second server on
+    // its own port: the overlay talks to us via custom HMR events (see
+    // browser/socket.ts), and we dispatch them to the configured agent. In
+    // Nuxt this runs too, since nuxt-module.ts registers this same plugin.
+    configureServer(server) {
+      if (started) return // configureServer can fire more than once; agent.start() must not
+      started = true
+
+      const cwd = process.cwd()
+      const agent = options.agent === 'codex' ? codexAgent : claudeAgent
+      agent.start(cwd)
+
+      // Vite hands the event handler a fresh WebSocketClient wrapper but a
+      // stable underlying `.socket` per connection; key one AgentClient per
+      // socket so submit/stop/close all agree on identity and share a sender.
+      const clients = new Map<object, AgentClient>()
+      const clientFor = (c: { socket: object; send: (event: string, data?: unknown) => void }): AgentClient => {
+        let existing = clients.get(c.socket)
+        if (!existing) {
+          existing = { send: (event, data) => c.send(event, data) }
+          clients.set(c.socket, existing)
+        }
+        return existing
+      }
+
+      server.ws.on('kapi:submit', (data: { prompt: string }, client) => agent.submit(data.prompt, clientFor(client), cwd))
+      server.ws.on('kapi:stop', (_data, client) => agent.stop(clientFor(client)))
+      server.ws.on('connection', (socket) => {
+        socket.on('close', () => {
+          const existing = clients.get(socket)
+          if (existing) {
+            agent.onClose(existing)
+            clients.delete(socket)
+          }
         })
-        .catch(err => {
-          console.error('[kapi] failed to start server', err)
-        })
+      })
     },
     resolveId(id: string) {
       if (id === '/@kapi-ui/overlay') return overlayPath
@@ -155,25 +183,14 @@ export default function kapi(options: KapiOptions = {}): Plugin {
 
       return { code: s.toString(), map: s.generateMap({ hires: true }) }
     },
-    async transformIndexHtml(html: string) {
-      if (serverPort === null) {
-        serverPort = await startServer(KAPI_SERVER_PORT, options)
-      }
-      return {
-        html,
-        tags: [
-          {
-            tag: 'script',
-            children: `window.__KAPI_PORT__ = ${serverPort}`,
-            injectTo: 'body',
-          },
-          {
-            tag: 'script',
-            attrs: { type: 'module', src: '/@kapi-ui/overlay' },
-            injectTo: 'body',
-          },
-        ],
-      }
+    transformIndexHtml() {
+      return [
+        {
+          tag: 'script',
+          attrs: { type: 'module', src: '/@kapi-ui/overlay' },
+          injectTo: 'body' as const,
+        },
+      ]
     },
   }
 }

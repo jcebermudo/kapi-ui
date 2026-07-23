@@ -1,43 +1,32 @@
-let socket: WebSocket | null = null
+// Talks to the dev server over Vite's built-in HMR websocket (custom events)
+// rather than a dedicated kapi server on its own port. `import.meta.hot` is
+// injected by Vite into the modules it serves in dev, so the overlay already
+// has a live channel to the dev server — no port discovery, no second socket.
 let onCommentsDone: (() => void) | null = null
 let onCommentsProcessing: ((status: string) => void) | null = null
 let onCommentsError: ((message: string) => void) | null = null
 
-export function connectSocket(): WebSocket {
-  const port = (window as any).__KAPI_PORT__ || 6767
-  socket = new WebSocket(`ws://localhost:${port}`)
-
-  socket.addEventListener('open', () => console.log('[kapi] connected to kapi server'))
-  socket.addEventListener('close', () => console.log('[kapi] disconnected from kapi server'))
-  socket.addEventListener('error', (e) => console.error('[kapi] websocket error', e))
-  socket.addEventListener('message', (e) => {
-    try {
-      const msg = JSON.parse(e.data)
-      if (msg.type === 'comments:done') onCommentsDone?.()
-      if (msg.type === 'comments:processing') onCommentsProcessing?.(msg.status)
-      if (msg.type === 'comments:error') onCommentsError?.(msg.message)
-    } catch {
-      /* ignore malformed messages */
-    }
-  })
-
-  return socket
+export function connectSocket() {
+  const hot = import.meta.hot
+  if (!hot) {
+    console.error('[kapi] no HMR channel — is the dev server running with the kapi plugin?')
+    return
+  }
+  hot.on('kapi:done', () => onCommentsDone?.())
+  hot.on('kapi:processing', (data: { status: string }) => onCommentsProcessing?.(data.status))
+  hot.on('kapi:error', (data: { message: string }) => onCommentsError?.(data.message))
 }
 
 export function sendComments(prompt: string) {
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
-    console.error('[kapi] cannot send comments: socket not connected')
-    return
-  }
-  socket.send(JSON.stringify({ type: 'comments:submit', prompt }))
+  const hot = import.meta.hot
+  if (!hot) return console.error('[kapi] cannot send comments: no HMR channel')
+  hot.send('kapi:submit', { prompt })
 }
 
 export function stopComments() {
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
-    console.error('[kapi] cannot stop comments: socket not connected')
-    return
-  }
-  socket.send(JSON.stringify({ type: 'comments:stop' }))
+  const hot = import.meta.hot
+  if (!hot) return console.error('[kapi] cannot stop comments: no HMR channel')
+  hot.send('kapi:stop', {})
 }
 
 export function setOnCommentsDone(callback: () => void) {

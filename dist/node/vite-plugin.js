@@ -4,8 +4,8 @@ import { searchForWorkspaceRoot } from 'vite';
 import { walk } from 'estree-walker';
 import MagicString from 'magic-string';
 import { SourceMapConsumer } from 'source-map-js';
-import { startServer } from './server.js';
-import { KAPI_SERVER_PORT } from '../constants.js';
+import { claudeAgent } from './claude-agent.js';
+import { codexAgent } from './codex-agent.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const overlayPath = path.resolve(__dirname, '../browser/overlay.js');
 const traceRecordPath = path.resolve(__dirname, '../browser/trace-record.js');
@@ -57,7 +57,7 @@ function createUniqueIdentifier(base, identifiers) {
     return identifier;
 }
 export default function kapi(options = {}) {
-    let serverPort = null;
+    let started = false;
     return {
         name: 'kapi-ui',
         // Must run after @vitejs/plugin-vue has compiled templates into
@@ -74,13 +74,39 @@ export default function kapi(options = {}) {
                 },
             };
         },
-        configureServer() {
-            startServer(KAPI_SERVER_PORT, options)
-                .then(port => {
-                serverPort = port;
-            })
-                .catch(err => {
-                console.error('[kapi] failed to start server', err);
+        // Ride Vite's own HMR websocket instead of standing up a second server on
+        // its own port: the overlay talks to us via custom HMR events (see
+        // browser/socket.ts), and we dispatch them to the configured agent. In
+        // Nuxt this runs too, since nuxt-module.ts registers this same plugin.
+        configureServer(server) {
+            if (started)
+                return; // configureServer can fire more than once; agent.start() must not
+            started = true;
+            const cwd = process.cwd();
+            const agent = options.agent === 'codex' ? codexAgent : claudeAgent;
+            agent.start(cwd);
+            // Vite hands the event handler a fresh WebSocketClient wrapper but a
+            // stable underlying `.socket` per connection; key one AgentClient per
+            // socket so submit/stop/close all agree on identity and share a sender.
+            const clients = new Map();
+            const clientFor = (c) => {
+                let existing = clients.get(c.socket);
+                if (!existing) {
+                    existing = { send: (event, data) => c.send(event, data) };
+                    clients.set(c.socket, existing);
+                }
+                return existing;
+            };
+            server.ws.on('kapi:submit', (data, client) => agent.submit(data.prompt, clientFor(client), cwd));
+            server.ws.on('kapi:stop', (_data, client) => agent.stop(clientFor(client)));
+            server.ws.on('connection', (socket) => {
+                socket.on('close', () => {
+                    const existing = clients.get(socket);
+                    if (existing) {
+                        agent.onClose(existing);
+                        clients.delete(socket);
+                    }
+                });
             });
         },
         resolveId(id) {
@@ -147,25 +173,14 @@ export default function kapi(options = {}) {
             s.append(`\nfunction ${tracerIdentifier}(line, column, vnode) { return ${recordPositionIdentifier}(${JSON.stringify(relativeFile)}, line, column, vnode) }\n`);
             return { code: s.toString(), map: s.generateMap({ hires: true }) };
         },
-        async transformIndexHtml(html) {
-            if (serverPort === null) {
-                serverPort = await startServer(KAPI_SERVER_PORT, options);
-            }
-            return {
-                html,
-                tags: [
-                    {
-                        tag: 'script',
-                        children: `window.__KAPI_PORT__ = ${serverPort}`,
-                        injectTo: 'body',
-                    },
-                    {
-                        tag: 'script',
-                        attrs: { type: 'module', src: '/@kapi-ui/overlay' },
-                        injectTo: 'body',
-                    },
-                ],
-            };
+        transformIndexHtml() {
+            return [
+                {
+                    tag: 'script',
+                    attrs: { type: 'module', src: '/@kapi-ui/overlay' },
+                    injectTo: 'body',
+                },
+            ];
         },
     };
 }

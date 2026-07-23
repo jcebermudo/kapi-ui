@@ -2,9 +2,7 @@
 // continuity via a session id (--resume). Unlike Claude, it has no
 // stdin-driven persistent mode, so there's no warm process to keep alive.
 import { spawn, type ChildProcess } from 'child_process'
-import type { WebSocket } from 'ws'
-import type { AgentRuntime, AgentSession } from './types.js'
-import { send } from './ws-utils.js'
+import type { AgentRuntime, AgentClient, AgentSession } from './types.js'
 
 function startSession(cwd: string, prompt: string): ChildProcess {
   return spawn('codex', ['exec', '--json', '--sandbox', 'workspace-write', '--cd', cwd, prompt], {
@@ -31,14 +29,14 @@ function describeEvent(event: any): string | null {
 }
 
 let session: AgentSession | null = null
-const processBySocket = new WeakMap<WebSocket, ChildProcess>()
+const processByClient = new WeakMap<AgentClient, ChildProcess>()
 
-async function submitPrompt(prompt: string, socket: WebSocket, cwd: string) {
+async function submitPrompt(prompt: string, client: AgentClient, cwd: string) {
   const isNewSession = session === null
-  send(socket, { type: 'comments:processing', status: isNewSession ? 'Starting Codex...' : 'Continuing session...' })
+  client.send('kapi:processing', { status: isNewSession ? 'Starting Codex...' : 'Continuing session...' })
 
   const child = isNewSession ? startSession(cwd, prompt) : resumeSession(session!, prompt)
-  processBySocket.set(socket, child)
+  processByClient.set(client, child)
 
   let buffer = ''
   let failed = false
@@ -49,7 +47,7 @@ async function submitPrompt(prompt: string, socket: WebSocket, cwd: string) {
       console.log(`[kapi] codex session started: ${nextSessionId}`)
     }
     const status = describeEvent(event)
-    if (status) send(socket, { type: 'comments:processing', status })
+    if (status) client.send('kapi:processing', { status })
   }
 
   child.stdout!.on('data', (chunk) => {
@@ -70,7 +68,7 @@ async function submitPrompt(prompt: string, socket: WebSocket, cwd: string) {
   child.stderr!.pipe(process.stderr)
   child.on('error', (error) => {
     failed = true
-    send(socket, { type: 'comments:error', message: error.message })
+    client.send('kapi:error', { message: error.message })
   })
   child.on('close', (code) => {
     if (buffer.trim()) {
@@ -80,21 +78,21 @@ async function submitPrompt(prompt: string, socket: WebSocket, cwd: string) {
         // A final non-JSON line is only CLI output, not a Kapi protocol event.
       }
     }
-    processBySocket.delete(socket)
+    processByClient.delete(client)
     if (code !== 0 && !child.killed && !failed) {
-      send(socket, { type: 'comments:error', message: `codex exited with code ${code}.` })
+      client.send('kapi:error', { message: `codex exited with code ${code}.` })
     } else if (!failed) {
-      send(socket, { type: 'comments:done' })
+      client.send('kapi:done')
     }
   })
 }
 
-function stop(socket: WebSocket) {
-  const child = processBySocket.get(socket)
+function stop(client: AgentClient) {
+  const child = processByClient.get(client)
   if (child) {
     console.log('[kapi] stopping codex process')
     child.kill()
-    processBySocket.delete(socket)
+    processByClient.delete(client)
   }
 }
 
@@ -102,13 +100,13 @@ export const codexAgent: AgentRuntime = {
   // No persistent process to warm — each submission spawns its own.
   start() {},
 
-  submit(prompt, socket, cwd) {
-    void submitPrompt(prompt, socket, cwd)
+  submit(prompt, client, cwd) {
+    void submitPrompt(prompt, client, cwd)
   },
 
   stop,
 
-  onClose(socket) {
-    stop(socket)
+  onClose(client) {
+    stop(client)
   },
 }
