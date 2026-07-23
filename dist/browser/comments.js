@@ -114,13 +114,21 @@ function position(target, wrapper) {
 // independently of the fresh nodes render() builds, then self-removes.
 function animateOut(node) {
     node.classList.add('kapi-leaving');
-    const onEnd = (e) => {
-        if (e.target !== node)
-            return;
+    // Fallback: if animationend never fires (reduced motion, backgrounded tab,
+    // animation not run), remove anyway so leaving nodes can't accumulate.
+    let fallback;
+    const remove = () => {
+        clearTimeout(fallback);
         node.removeEventListener('animationend', onEnd);
         node.remove();
     };
+    const onEnd = (e) => {
+        if (e.target !== node)
+            return;
+        remove();
+    };
     node.addEventListener('animationend', onEnd);
+    fallback = setTimeout(remove, 250);
 }
 function renderMarker(entry, label) {
     const wrapper = document.createElement('div');
