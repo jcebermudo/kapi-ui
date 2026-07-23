@@ -77,7 +77,7 @@
 .kapi-icon { pointer-events: none; }
 
 .kapi-logo-icon {
-  width: 18px;
+  width: 22px;
   height: auto;
   margin-top: 2px;
   animation: kapi-bounce 1.6s ease-in-out infinite;
