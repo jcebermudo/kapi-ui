@@ -2,7 +2,7 @@ import { startInspecting, stopInspecting, setOnHover, setOnElementClick, setOnSe
 import { updateHoverPanel, showProcessingStatus } from './hover-panel.js';
 import { beginComment, updateSelection, clearAllComments, cancelOpenDraft, buildAllCommentsPrompt } from './comments.js';
 import { connectSocket, sendComments, stopComments, setOnCommentsDone, setOnCommentsError, setOnCommentsProcessing } from './socket.js';
-import { LOGO_SVG, AI_SVG, COPY_SVG, DELETE_SVG, STOP_SVG } from './icons.js';
+import { LOGO_SVG, AI_SVG, COPY_SVG, CHECK_SVG, DELETE_SVG, STOP_SVG } from './icons.js';
 import styles from './styles/overlay.css?inline';
 const KAPI_TAG = 'kapi-overlay';
 const POSITION_KEY = 'kapi-overlay-position';
@@ -76,10 +76,31 @@ export function insertOverlay() {
     copyBtn.type = 'button';
     copyBtn.setAttribute('aria-label', 'Copy');
     copyBtn.innerHTML = COPY_SVG;
-    copyBtn.addEventListener('click', () => {
+    // Swap the button icon (copy <-> checkmark) with a fade/scale/blur out-then-in.
+    const swapCopyIcon = (svg, done) => {
+        copyBtn.classList.remove('kapi-copy-in');
+        copyBtn.classList.add('kapi-copy-out');
+        setTimeout(() => {
+            copyBtn.innerHTML = svg;
+            copyBtn.classList.replace('kapi-copy-out', 'kapi-copy-in');
+            setTimeout(() => {
+                copyBtn.classList.remove('kapi-copy-in');
+                done?.();
+            }, 180);
+        }, 180);
+    };
+    copyBtn.addEventListener('click', async () => {
         const prompt = buildAllCommentsPrompt();
-        if (prompt)
-            navigator.clipboard?.writeText(prompt);
+        if (!prompt)
+            return;
+        try {
+            await navigator.clipboard.writeText(prompt);
+        }
+        catch {
+            return; // clipboard blocked; no success feedback
+        }
+        copyBtn.classList.add('kapi-busy'); // clicks disabled until we're back to the copy icon
+        swapCopyIcon(CHECK_SVG, () => setTimeout(() => swapCopyIcon(COPY_SVG, () => copyBtn.classList.remove('kapi-busy')), 1000));
     });
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'kapi-btn';

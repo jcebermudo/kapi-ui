@@ -104,6 +104,23 @@
 .kapi-logo-btn.kapi-animating-in { animation: kapi-icon-fade-in 200ms ease; }
 .kapi-ai-icon { width: 16.5px; height: auto; }
 .kapi-copy-icon { width: 16.5px; height: auto; color: white; }
+.kapi-check-icon { width: 16.5px; height: auto; color: rgb(34, 197, 94); }
+
+/* Copy button success feedback: swap copy <-> checkmark with a
+   fade/scale/blur transition. .kapi-busy fully blocks clicks meanwhile. */
+.kapi-btn.kapi-busy { pointer-events: none; }
+.kapi-copy-out { animation: kapi-copy-icon-out 180ms ease forwards; }
+.kapi-copy-in { animation: kapi-copy-icon-in 180ms ease forwards; }
+
+@keyframes kapi-copy-icon-out {
+  from { opacity: 1; transform: scale(1); filter: blur(0); }
+  to { opacity: 0; transform: scale(0.6); filter: blur(3px); }
+}
+
+@keyframes kapi-copy-icon-in {
+  from { opacity: 0; transform: scale(0.6); filter: blur(3px); }
+  to { opacity: 1; transform: scale(1); filter: blur(0); }
+}
 
 .kapi-delete-icon {
   width: 15px;
