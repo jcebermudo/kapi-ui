@@ -393,6 +393,8 @@ export function updateSelection(els) {
 }
 function deleteComment(id) {
     comments = comments.filter((c) => c.id !== id);
+    // Renumber so ids stay contiguous (1..n) and match marker labels.
+    comments.forEach((c, i) => (c.id = i + 1));
     draft = null;
     unlockHighlight();
     clearPreview();
