@@ -135,15 +135,17 @@
   align-items: center;
   gap: 6px;
   flex: none;
-  opacity: 0;
+  opacity: 0.6;
   transform: scale(0.9);
-  transition: opacity 160ms ease, transform 160ms ease;
+  filter: blur(4px);
+  transition: opacity 160ms ease, transform 160ms ease, filter 160ms ease;
   transition-delay: 0ms;
 }
 
 .kapi-bar.kapi-expanded .kapi-extra {
   opacity: 1;
   transform: scale(1);
+  filter: blur(0);
   transition-delay: 140ms;
 }
 
