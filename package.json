@@ -3,8 +3,9 @@
   "version": "0.2.2",
   "description": "Visually prompt your UI",
   "scripts": {
-    "build": "tsc && mkdir -p dist/browser/styles && cp src/browser/styles/overlay.css dist/browser/styles/overlay.css && cp src/browser/styles/comments.css dist/browser/styles/comments.css",
-    "dev": "tsc --watch --preserveWatchOutput",
+    "build": "tsc && npm run copy:css",
+    "copy:css": "mkdir -p dist/browser/styles && cp src/browser/styles/*.css dist/browser/styles/",
+    "dev": "npm run copy:css && (node -e \"require('fs').watch('src/browser/styles',()=>require('child_process').execSync('npm run copy:css'))\" & tsc --watch --preserveWatchOutput)",
     "prepublishOnly": "npm run build"
   },
   "files": [
