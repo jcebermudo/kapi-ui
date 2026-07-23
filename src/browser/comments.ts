@@ -488,6 +488,20 @@ export function beginComment(el: Element, clientX: number, clientY: number) {
   render()
 }
 
+// Tracks whether Shift is currently held so the composer can stay hidden
+// while the user is still shift-clicking to grow the multi-selection —
+// opening/refreshing it on every click steals focus and discards typing.
+// The composer only appears once Shift is released, showing the final batch.
+let shiftHeld = false
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Shift') shiftHeld = true
+})
+document.addEventListener('keyup', (e) => {
+  if (e.key !== 'Shift') return
+  shiftHeld = false
+  if (draft?.els) render()
+})
+
 // Called on every shift-click/drag-select change in inspector.ts. Keeps one
 // shared composer live as the selection grows or shrinks, so no separate
 // "commit" click is needed. On submit, one CommentEntry per selected element
@@ -517,6 +531,7 @@ export function updateSelection(els: Element[]) {
   }
 
   lockWithoutHighlight()
+  if (shiftHeld) return
   render()
 }
 
