@@ -1,6 +1,6 @@
 import { startInspecting, stopInspecting, setOnHover, setOnElementClick, setOnSelectionChange, setDisabled } from './inspector.js'
 import { updateHoverPanel, showProcessingStatus } from './hover-panel.js'
-import { beginComment, updateSelection, clearAllComments, cancelOpenDraft, buildCommentsPrompt, buildAllCommentsPrompt } from './comments.js'
+import { beginComment, updateSelection, clearAllComments, cancelOpenDraft, buildAllCommentsPrompt } from './comments.js'
 import { connectSocket, sendComments, stopComments, setOnCommentsDone, setOnCommentsError, setOnCommentsProcessing } from './socket.js'
 import { LOGO_SVG, AI_SVG, COPY_SVG, DELETE_SVG, STOP_SVG } from './icons.js'
 import styles from './styles/overlay.css?inline'
@@ -76,7 +76,7 @@ export function insertOverlay() {
   aiBtn.setAttribute('aria-label', 'AI')
   aiBtn.innerHTML = AI_SVG
   aiBtn.addEventListener('click', () => {
-    const prompt = buildCommentsPrompt()
+    const prompt = buildAllCommentsPrompt()
     if (prompt) sendComments(prompt)
   })
 

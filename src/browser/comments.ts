@@ -388,29 +388,6 @@ export function cancelOpenDraft() {
   if (draft) cancelDraft()
 }
 
-export function buildCommentsPrompt(): string | null {
-  if (comments.length === 0) return null
-
-  const describe = (el: Element, source: SourceLocation | null, component: ComponentInfo | null) => {
-    const location = source ? `${source.file}:${source.line}:${source.column}` : buildUniqueSelector(el)
-    const componentTag = component ? `<${component.name}> ` : ''
-    return `${componentTag}${location}`
-  }
-
-  const lines = comments.map((c) => {
-    const locations = c.targets?.length
-      ? c.targets.map((t) => describe(t.el, t.source, t.component)).join(', ')
-      : describe(c.el, c.source, c.component)
-    return `${c.id}. [${locations}] feedback: ${c.text}`
-  })
-
-  return [
-    'Address each of the following review comments left on specific elements in this app:',
-    '',
-    ...lines,
-  ].join('\n')
-}
-
 // Builds one prompt covering comments from every page, read straight from
 // localStorage (each page persists under `kapi-comments:<pathname>`). Other
 // pages aren't in the DOM, so locations come from the stored selector/source
