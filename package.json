@@ -28,7 +28,7 @@
     "frontend"
   ],
   "author": "James Bermudo",
-  "license": "ISC",
+  "license": "MIT",
   "type": "module",
   "bugs": {
     "url": "https://github.com/jcebermudo/kapi/issues"
