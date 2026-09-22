@@ -3,6 +3,7 @@
   "version": "0.3.7",
   "description": "Visually prompt your UI",
   "scripts": {
+    "test": "npm run build && node test/source-locations.mjs",
     "build": "tsc && npm run copy:css",
     "copy:css": "mkdir -p dist/browser/styles && cp src/browser/styles/*.css dist/browser/styles/",
     "dev": "npm run copy:css && (node -e \"require('fs').watch('src/browser/styles',()=>require('child_process').execSync('npm run copy:css'))\" & tsc --watch --preserveWatchOutput)",

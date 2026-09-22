@@ -4,7 +4,14 @@ import type { SourceLocation, VNodeLike } from './types.js'
 // position's `props` object is a stable identity for that call site within a
 // single render pass — good enough to key a lookup that only needs to survive
 // from "vnode created" to "el mounted" a few lines later in the same tick.
-const vnodeToPos = new WeakMap<object, SourceLocation>()
+// Vite may load this file both with and without a ?v= dependency hash.
+// Share the store across those module instances and hot updates so the
+// inspector reads the same locations that compiled components recorded.
+const storeKey = Symbol.for('kapi-ui.source-locations')
+const traceGlobal = globalThis as typeof globalThis & {
+  [storeKey]?: WeakMap<object, SourceLocation>
+}
+const vnodeToPos = (traceGlobal[storeKey] ??= new WeakMap<object, SourceLocation>())
 
 /**
  * Called by the wrapper the vite plugin injects around every vnode-creation
