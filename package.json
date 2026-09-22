@@ -23,7 +23,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jcebermudo/kapi.git"
+    "url": "git+https://github.com/jcebermudo/kapi-ui.git"
   },
   "keywords": [
     "ai",
@@ -34,9 +34,9 @@
   "license": "MIT",
   "type": "module",
   "bugs": {
-    "url": "https://github.com/jcebermudo/kapi/issues"
+    "url": "https://github.com/jcebermudo/kapi-ui/issues"
   },
-  "homepage": "https://github.com/jcebermudo/kapi#readme",
+  "homepage": "https://github.com/jcebermudo/kapi-ui#readme",
   "devDependencies": {
     "@nuxt/schema": "^3.14.0",
     "@types/node": "^26.1.0",
