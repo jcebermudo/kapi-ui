@@ -150,12 +150,12 @@ export function updateHoverPanel(el: Element | null) {
     panelEl.appendChild(renderComponentBadge(location.component, 'kapi-hover-panel-component'))
   }
 
-  if (location.source) {
-    const sourceEl = document.createElement('div')
-    sourceEl.className = 'kapi-hover-panel-source'
-    sourceEl.textContent = `${location.source.file}:${location.source.line}:${location.source.column}`
-    panelEl.appendChild(sourceEl)
-  }
+  const sourceEl = document.createElement('div')
+  sourceEl.className = 'kapi-hover-panel-source'
+  sourceEl.textContent = location.source
+    ? `${location.source.file}:${location.source.line}:${location.source.column}`
+    : 'Source location unavailable'
+  panelEl.appendChild(sourceEl)
 
   const selectorEl = document.createElement('div')
   selectorEl.className = 'kapi-hover-panel-selector'
